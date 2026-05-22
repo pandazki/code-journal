@@ -1,0 +1,46 @@
+name: release
+
+# Cross-platform `cj` binaries. `bun build --compile` cross-compiles every
+# target from a single runner, so one ubuntu job produces them all.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  binaries:
+    name: Build cj binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.18'
+          cache: 'npm'
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install workspace deps
+        run: npm install --no-audit --no-fund
+
+      - name: Build @code-journal/core
+        run: npm run build -w @code-journal/core
+
+      - name: Compile cross-platform binaries
+        run: npm run build:binaries -w @code-journal/tui
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cj-binaries
+          path: packages/tui/dist/cj-*
+
+      - name: Attach binaries to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/tui/dist/cj-*

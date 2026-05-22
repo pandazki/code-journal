@@ -1,0 +1,25 @@
+{
+  "name": "@code-journal/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "code-journal core — session discovery, transcript parsing, and shared logic",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.18"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@code-journal/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "code-journal CLI — argv router over @code-journal/core",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "engines": {
+    "node": ">=20.18"
+  },
+  "dependencies": {
+    "@code-journal/core": "*"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0"
+  }
+}

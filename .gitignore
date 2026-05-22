@@ -1,0 +1,22 @@
+# dependencies & build output
+node_modules/
+dist/
+test-dist/
+*.tsbuildinfo
+.tsup/
+
+# generated plugin CLI bundle (produced by `npm run sync-plugin-bin`)
+claude-plugin/bin/code-journal.js
+claude-plugin/bin/code-journal.js.map
+
+# server runtime data
+server/data/
+
+# code-journal local state (when a dev runs the tool inside the repo)
+.code-journal/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

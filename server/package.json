@@ -1,0 +1,20 @@
+{
+  "name": "@code-journal/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "code-journal reference server — receives reports & uploaded sessions, serves the browse UI",
+  "scripts": {
+    "build": "tsup src/cli.ts --format cjs --out-dir dist --clean",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsup src/index.ts test/server.test.ts test/extras.test.ts test/display-name.test.ts --format cjs --out-dir test-dist --silent && node --test test-dist/test/server.test.js test-dist/test/extras.test.js test-dist/test/display-name.test.js"
+  },
+  "engines": {
+    "node": ">=20.18"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.5.0"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "code-journal",
+  "description": "Append work-log entries and draft daily reports from your coding sessions.",
+  "version": "0.1.0",
+  "author": { "name": "pandazki" }
+}

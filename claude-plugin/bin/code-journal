@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Unix wrapper for the Node-based code-journal CLI.
+#
+# The actual logic lives in `code-journal.js` (a single-file CJS bundle
+# produced by tsup from packages/cli/src/index.ts). The bundle is generated
+# at workspace install time via the root package.json's postinstall script.
+set -e
+HERE="$(cd "$(dirname "$0")" && pwd)"
+BUNDLE="$HERE/code-journal.js"
+if [ ! -f "$BUNDLE" ]; then
+  echo "code-journal: $BUNDLE missing — run 'npm install' from the workspace root to build it" >&2
+  exit 1
+fi
+# CJ_NODE_BIN lets an embedder (an Electron-bundled app, or a standalone
+# bun-binary distribution of `claude` without system Node) substitute its
+# own Node-compatible interpreter. Defaults to `node` from PATH —
+# long-standing behavior, no migration required for existing users.
+exec "${CJ_NODE_BIN:-node}" "$BUNDLE" "$@"
