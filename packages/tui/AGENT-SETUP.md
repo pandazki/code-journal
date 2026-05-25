@@ -22,7 +22,7 @@ missing, resolve it before continuing.
 Run from the repository root (the directory containing `packages/tui/`).
 
 1. Ensure the toolchain:
-   - Node ≥ 20.18 — `node --version`.
+   - Node ≥ 22 — `node --version`.
    - Bun (build-time only) — `bun --version`. If missing:
      `curl -fsSL https://bun.sh/install | bash` (then re-source the shell, or
      use `~/.bun/bin/bun`).

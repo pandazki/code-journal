@@ -6,10 +6,10 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test 'test/*.test.ts'"
   },
   "engines": {
-    "node": ">=20.18"
+    "node": ">=22"
   },
   "dependencies": {
     "@code-journal/core": "*"

@@ -25,7 +25,7 @@ manually or on a cron schedule.
 
 ### Build
 
-Requires Node ≥ 20.18. Release binaries are cross-compiled with
+Requires Node ≥ 22. Release binaries are cross-compiled with
 [Bun](https://bun.sh) (a build-time tool only — the app runs on Node).
 
 ```sh

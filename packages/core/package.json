@@ -16,10 +16,10 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node --import tsx --test 'test/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=20.18"
+    "node": ">=22"
   }
 }

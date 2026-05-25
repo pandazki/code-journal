@@ -22,10 +22,10 @@
     "postinstall": "npm run build || echo 'postinstall: build skipped (run `npm run build` after deps settle)'"
   },
   "engines": {
-    "node": ">=20.18"
+    "node": ">=22"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
+    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }
