@@ -20,3 +20,10 @@ server/data/
 *.swp
 .idea/
 .vscode/
+
+# Experiment artifacts that contain raw transcript content — kept out of source control.
+# The committed `report.md` is aggregate-only with no verbatim quotes.
+experiments/observation-lens-v1/digests/
+experiments/observation-lens-v1/events/
+experiments/observation-lens-v1/audits/
+experiments/observation-lens-v1/PROJECT-MAPPING.md
