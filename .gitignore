@@ -27,3 +27,15 @@ experiments/observation-lens-v1/digests/
 experiments/observation-lens-v1/events/
 experiments/observation-lens-v1/audits/
 experiments/observation-lens-v1/PROJECT-MAPPING.md
+
+# Phase 2 experimental battery artifacts
+experiments/observation-lens-v2/e1/runs/
+experiments/observation-lens-v2/e2/digests/
+experiments/observation-lens-v2/e2/events/
+experiments/observation-lens-v2/e4/digests/
+experiments/observation-lens-v2/e4/events/
+experiments/observation-lens-v2/e5/digests/
+experiments/observation-lens-v2/e5/events/
+experiments/observation-lens-v2/e6/digests/
+experiments/observation-lens-v2/e6/events/
+experiments/observation-lens-v2/e7/reconstruction.md
