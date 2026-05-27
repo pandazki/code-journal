@@ -58,8 +58,18 @@ event:
 **Anchor verbatim**: <copy AI's salience event>
 **User response verbatim**: <copy user's response>
 **Stance**: engaged | deferred | overrode | ignored
+**Redirected to**: <ONLY present when Stance = ignored — one short
+              sentence naming the concrete new direction the user
+              introduced. Source-anchored, no interpretation.>
 **Why this stance, not another**: <1 sentence>
 ```
+
+The `Redirected to` field exists because `ignored` is the easiest stance
+to misread as silence — in practice the user almost always pivoted to
+something specific, and that specific new direction is part of the
+observation. Without this field, downstream consumers of the event
+distribution would see `ignored × N` as "user disengaged" when actually
+the user was actively driving in a different direction.
 
 ## Hard rules (enforced in lens prompts)
 

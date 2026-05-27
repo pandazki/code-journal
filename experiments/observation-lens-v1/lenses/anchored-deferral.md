@@ -43,6 +43,23 @@ must be **explicit** in the AI's text.
 If the user response doesn't cleanly fit one of these four, **skip the
 event** rather than forcing a fit.
 
+### Special rule for `ignored` stance
+
+When stance is `ignored`, the event MUST include an additional field
+`redirected_to` (also rendered in the payload) — **one short sentence
+naming the concrete new direction the user's response introduced**. The
+`ignored` stance is the easiest to misread as silence, but in practice
+the user almost always redirected to *something specific* — that new
+direction is itself part of the observation. Examples of `redirected_to`
+content (short, source-anchored, no interpretation):
+
+- "asked whether a `bump`-style claude skill already exists"
+- "reported a new login error visible in a screenshot"
+- "added a requirement that `pneuma cli` must support dev-mode launch"
+
+`engaged`, `deferred`, `overrode` events do NOT have this field — for
+those the user's stance toward the anchor IS the observation.
+
 ## What you must NEVER do
 
 - ❌ Claim the user "is" any stance type ("the user is an engager")
@@ -79,7 +96,7 @@ Strict JSON. Schema:
       "source_refs": [
         {"type": "turn", "id": 42}
       ],
-      "payload": "**Anchor (AI salience event)**: direct-ask | ≥2-named-options | explicit-uncertainty\n\n**Anchor verbatim**: ...\n\n**User response verbatim**: ...\n\n**Stance**: engaged | deferred | overrode | ignored\n\n**Why this stance, not another**: ..."
+      "payload": "**Anchor (AI salience event)**: direct-ask | ≥2-named-options | explicit-uncertainty\n\n**Anchor verbatim**: ...\n\n**User response verbatim**: ...\n\n**Stance**: engaged | deferred | overrode | ignored\n\n**Redirected to**: <only present when Stance = ignored; one short sentence>\n\n**Why this stance, not another**: ..."
     }
   ],
   "empty_state_reason": "<only if events is empty; one sentence>"

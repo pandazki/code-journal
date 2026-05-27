@@ -132,24 +132,28 @@ out.push('---');
 out.push('');
 
 for (const t of turns) {
+  // Turn headers now carry an ISO-8601 timestamp suffix so the composer can
+  // recover turn → ts mapping for response-latency measurements (M2). The
+  // suffix uses a stable parseable form: `· @<ISO>`.
+  const tsSuffix = t.ts ? ` · @${t.ts}` : '';
   const head = `**T${t.id} · ${t.role}`;
   if (t.kind === 'text') {
-    out.push(`${head} (text)**`);
+    out.push(`${head} (text)${tsSuffix}**`);
     out.push('');
     out.push(t.text);
   } else if (t.kind === 'thinking') {
-    out.push(`${head} (thinking)**`);
+    out.push(`${head} (thinking)${tsSuffix}**`);
     out.push('');
     out.push('> ' + t.text.split('\n').join('\n> '));
   } else if (t.kind === 'tool_use') {
-    out.push(`${head} (tool_use → ${t.toolName})**`);
+    out.push(`${head} (tool_use → ${t.toolName})${tsSuffix}**`);
     out.push('');
     out.push('```');
     out.push(t.toolInput);
     out.push('```');
   } else if (t.kind === 'tool_result') {
     const tag = t.isError ? 'tool_result · ERROR' : 'tool_result';
-    out.push(`${head} (${tag})**`);
+    out.push(`${head} (${tag})${tsSuffix}**`);
     out.push('');
     out.push('```');
     out.push(t.text);
