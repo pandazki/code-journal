@@ -12,7 +12,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@code-journal/core": "*"
+    "@code-journal/core": "*",
+    "@code-journal/observation": "*"
   },
   "devDependencies": {
     "tsup": "^8.3.0"
