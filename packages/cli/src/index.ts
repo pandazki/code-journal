@@ -12,6 +12,11 @@ import * as path from 'node:path';
 import { parseArgs } from 'node:util';
 
 import {
+  cmdObservationCompose,
+  cmdObservationStatus,
+  cmdObservationSync,
+} from './observation';
+import {
   CONFIG_JSON,
   DEFAULT_CATCHUP_LOOKBACK_DAYS,
   JsonObject,
@@ -896,6 +901,14 @@ function printHelp(): void {
       '  synth-state            get | advance --stdin — per-session cursor hints for incremental synth.',
       '  schedule               get | set --mode manual|daily|weekly [--time HH:MM] [--weekday 0-6]',
       '',
+      'Observation lens (MVP-II — see docs/plans/mvp-ii.md):',
+      '  sync                   Discover new coding-agent sessions and run both lenses; auto-composes',
+      '                         when new-events count crosses each project\'s threshold. Use --scan-only',
+      '                         to append events without triggering compose.',
+      '  compose                --project <name|id> [--dry-run]: compose the next audit episode from',
+      '                         the signal store. Episodes are immutable once written.',
+      '  status                 List projects with their signal store + episode history.',
+      '',
     ].join('\n'),
   );
 }
@@ -916,6 +929,10 @@ const COMMANDS: Record<string, Handler> = {
   'synth-context': cmdSynthContext,
   'synth-state': cmdSynthState,
   schedule: cmdSchedule,
+  // MVP-II observation lens subcommands (see docs/plans/mvp-ii.md § 4)
+  sync: cmdObservationSync,
+  compose: cmdObservationCompose,
+  status: cmdObservationStatus,
 };
 
 export async function main(argv: string[], ctx: Partial<CliContext> = {}): Promise<number> {
