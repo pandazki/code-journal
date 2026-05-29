@@ -268,6 +268,40 @@ no longer surfaces as engagement.
 Remaining open item from the re-validation: #3 — the off-anchor user-driven
 pivot mode (tripwire GT-C, real-data T1) still has no lens.
 
+## #3 fix — third lens: `user-initiated-pivot` (v1.0)
+
+Added a third lens for the mode neither existing lens can see: the user injects
+direction with **no AI decision point** in front of them. Source-anchored 3-leg
+gate mirroring strict's discipline:
+1. no AI fork preceded (else it's anchored-deferral's) — quote the preceding AI turn
+2. user introduced new direction (directive, own words) — not ack/answer/result/next-step
+3. subsequent work demonstrably took it up
+
+Wired end-to-end: `LensId` union + `LENS_IDS` + guards + lens_version default
+(v1.0); the sync loop runs it automatically; grounding gate extended to its
+payload; compose renders a "Findings — User-initiated pivot" section. A
+**cross-lens leg-1 guard** at compose suppresses any pivot event whose turn
+coincides with a deferral anchor (a deferral anchor *is* a fork → owned by
+anchored-deferral) — mechanical, not trusting the lens self-check. Suite 64 green.
+
+**Validation:**
+
+| input | result |
+|----|----|
+| tripwire GT-C (T19, off-anchor crash-fix redirect) | **caught** — 1 event, exactly GT-C |
+| tripwire noise / AI-fork responses | **not fired** (stayed sparse) ✓ |
+| real proj-B T103 (had a ≥2-options fork at T102) | lens fired, then **suppressed by the leg-1 guard** ✓ |
+| real proj-B T1 (session opener) | not caught — no preceding AI turn; the opener is the session *premise*, not a mid-stream pivot. Firing on every T1 would be noise, so excluding it is by design (a gold-label granularity mismatch, not a lens miss). |
+| real proj-B T141 ("agent-production 是你加的吗?") | not caught — phrased as a question, not directive enough for leg 2. Borderline; broadening leg 2 risks over-firing. |
+
+**Honest status:** the lens cleanly covers the *mid-session off-anchor pivot*
+(proven on the controlled tripwire) — closing the structural blind spot #3 was
+about — and the leg-1 guard kills the one real-data false positive. It does NOT
+turn proj-B's two specific recall misses into hits: the opener is out of scope
+by design, and question-form concern-surfacing is a definitional edge left for
+tuning. Net: the mode is now representable and correctly bounded; coverage of
+its softer edges (questions, openers) is future work.
+
 ## Caveats
 
 - 3 real projects, 1 author, single-agent transcripts; n=2-11 events each.

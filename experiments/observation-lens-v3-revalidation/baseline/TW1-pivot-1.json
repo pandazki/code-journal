@@ -1,0 +1,20 @@
+{
+  "lens_id": "user-initiated-pivot",
+  "session_id": "tripwire-0001",
+  "project_code": "TW1",
+  "events": [
+    {
+      "lens_id": "user-initiated-pivot",
+      "session_id": "tripwire-0001",
+      "project_code": "TW1",
+      "turn_anchor": "T19",
+      "timespan": "13:18-13:23",
+      "source_refs": [
+        {"type": "turn", "id": 18},
+        {"type": "turn", "id": 19},
+        {"type": "turn-range", "from": 20, "to": 21}
+      ],
+      "payload": "**Arc**: AI had just finished writing the README configuration section and was narrating its own next self-directed step — updating CHANGELOG.md to record the configuration feature.\n\n**Before**: AI was proceeding autonomously toward updating CHANGELOG.md; no decision point was offered to the user.\n\n**Event (preceding AI turn — verbatim)**: \"README 配置章节补完了,包含查找顺序和环境变量覆盖的例子。我接着把 `CHANGELOG.md` 也更新一下,记一笔这次的配置功能。\"\n\n**Event (user direction — verbatim)**: \"等一下 —— 先别管 README 和 CHANGELOG。我突然想到 config 加载失败时现在是直接 crash 吧?先去 `src/cli.ts` 把加载包一层 try/catch,给个友好报错再退出。这个更优先。\"\n\n**Event classification**: user-initiated-pivot\n\n**After — concrete artifacts**: AI edited `src/cli.ts` (T20-T21) to wrap `loadConfig()` in a try/catch with friendly error output and `exit(1)`; CHANGELOG.md work was abandoned entirely.\n\n**Why this satisfies the criteria**: (1) The AI turn at T18 made no ask, offered no options, and flagged no uncertainty — it was narrating its own next autonomous step; (2) the user unprompted introduced a new concern (crash on config load failure) and a concrete new target file (`src/cli.ts`), halting the AI's planned work; (3) the immediately following turns (T20-T21) show `src/cli.ts` edited exactly as directed, with CHANGELOG work never started."
+    }
+  ]
+}

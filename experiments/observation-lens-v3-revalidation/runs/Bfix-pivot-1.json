@@ -1,0 +1,20 @@
+{
+  "lens_id": "user-initiated-pivot",
+  "session_id": "6446d252-252d-4459-8932-0b141c1ee12c",
+  "project_code": "B",
+  "events": [
+    {
+      "lens_id": "user-initiated-pivot",
+      "session_id": "6446d252-252d-4459-8932-0b141c1ee12c",
+      "project_code": "B",
+      "turn_anchor": "T103",
+      "timespan": "09:04-09:12",
+      "source_refs": [
+        {"type": "turn", "id": 102},
+        {"type": "turn", "id": 103},
+        {"type": "turn-range", "from": 104, "to": 136}
+      ],
+      "payload": "**Arc**: Cowork session support has just been implemented in the synthesizer (prompt edits done, T49-T80) and verified end-to-end via a headless CLI run that produced `synthesized 1 entries` with `agent_backend: cowork` (T114-T126). The AI is now summarising the verification outcome and laying out a recommended test procedure using the Electron desktop host.\n\n**Before**: The AI had described a two-step procedure the user was expected to execute independently: open a new terminal, `cd` into the AgentProduction directory, run `claude --plugin-dir ...`, then issue two slash commands inside Claude Code. The path was presented as a single, unambiguous instruction set — no branch point, no question, no uncertainty about which direction to take.\n\n**Event (preceding AI turn — verbatim)**: \"两个都在默认 14 天发现窗口内（今天 05-20）。**推荐用 `AgentProduction`** —— 最近、单会话、内容是一段实打实的产品思考,适合验证 synthesizer 能不能产出有质量的 entry。\n\n## 测试步骤（在一个新终端里）\n\n```bash\ncd \"/Users/pandazki/Documents/Claude/Projects/AgentProduction\"\nclaude --plugin-dir /Users/pandazki/Codes/tanka-work-memory-plugin/work-memory-claude-plugin\n```\n\n进 Claude Code 后依次：\n\n```\n/work-memory:work-log-init     # 把这个 Cowork 目录注册成 work-memory 项目（交互式,project_id/语言）\n/work-memory:work-log          # 触发 synthesizer —— 应扫到对应 Cowork 会话并产出 entry\n```\"\n\n**Event (user direction — verbatim)**: \"你直接启动客户端吧\"\n\n**Event classification**: user-initiated-pivot\n\n**After — concrete artifacts**: The AI pivoted to launching the Electron desktop host: T129 read `electron-example/README.md`; T133 ran `npm run build` in `electron-example/`; T136 launched `./node_modules/.bin/electron .` as a background task (task ID `b2iokutfn`); T138-T139 confirmed the Electron app started, logging session start and `http://127.0.0.1:8788` preview server up.\n\n**Why this satisfies the criteria**: (1) T102 contained no direct question, no ≥2 named options, and no flagged uncertainty — it was reporting verification results and narrating a user-executed test procedure as a single recommended path. (2) The user's message introduced a new directive: instead of following the steps independently, the user directed the AI to launch the client itself. (3) Within the next 10 turns (T104-T136), work demonstrably shifted to building and launching the Electron app, exactly what the user directed."
+    }
+  ]
+}

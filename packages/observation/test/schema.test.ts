@@ -41,6 +41,7 @@ describe('LensId / AgentId / FateType guards', () => {
   it('accepts valid identifiers', () => {
     assert.ok(isLensId('strict-negative-space'));
     assert.ok(isLensId('anchored-deferral'));
+    assert.ok(isLensId('user-initiated-pivot'));
     assert.ok(isAgentId('claude-code'));
     assert.ok(isAgentId('codex'));
     assert.ok(isAgentId('cowork'));
@@ -52,8 +53,11 @@ describe('LensId / AgentId / FateType guards', () => {
     assert.equal(isAgentId('cursor'), false);
     assert.equal(isFateType('promoted'), false);
   });
-  it('LENS_IDS lists both lenses', () => {
-    assert.deepEqual([...LENS_IDS].sort(), ['anchored-deferral', 'strict-negative-space']);
+  it('LENS_IDS lists all three lenses', () => {
+    assert.deepEqual(
+      [...LENS_IDS].sort(),
+      ['anchored-deferral', 'strict-negative-space', 'user-initiated-pivot'],
+    );
   });
 });
 
