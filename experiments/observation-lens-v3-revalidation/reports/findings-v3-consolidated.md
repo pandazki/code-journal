@@ -241,6 +241,33 @@ ungrounded event is dropped (logged) before it can enter the append-only store,
 which is immutable. Exported from `@code-journal/observation`; CLI dist + plugin
 bin rebuilt. Suite 64 green, workspace typecheck clean.
 
+## #2 fix — `engaged` de-contamination (stance taxonomy v3.0)
+
+Added a fifth stance, `assented`, and tightened `engaged` to require the user to
+**add content** (reason / constraint / new option), not merely select or approve.
+The deferral lens now distinguishes direction **injected** (engaged / overrode /
+ignored) from **declined** (assented / deferred). lens_version bumped v2.1→v3.0
+(material change); touched the lens prompt, event-schema, compose (5-tuple table),
+schema defaults; +tests, suite 64 green.
+
+**Verified against ground truth:**
+
+| input | pre-fix | post-fix (v3.0) |
+|----|----|----|
+| tripwire T6 "可以,继续" | engaged ❌ | **assented** ✓ |
+| tripwire T14 "好,很好" | engaged ❌ | **assented** ✓ |
+| tripwire T2 "用(a),因为…" | engaged | **engaged** ✓ (genuine, preserved) |
+| negative control (all encouragement) | engaged=3 | **engaged=0**, assented=3, deferred=2 |
+| real proj-C "好啊。。" (T348) | engaged (3/3 runs) | **assented** ✓ |
+| real proj-C substantive (T175) | engaged | **engaged** ✓ (preserved) |
+
+Tripwire reruns identical (e1/a2/o1/d1) — the new classification is stable on
+clean input. The founding-worry failure ("无限说『非常好继续吧』也能得到丰富日志")
+no longer surfaces as engagement.
+
+Remaining open item from the re-validation: #3 — the off-anchor user-driven
+pivot mode (tripwire GT-C, real-data T1) still has no lens.
+
 ## Caveats
 
 - 3 real projects, 1 author, single-agent transcripts; n=2-11 events each.

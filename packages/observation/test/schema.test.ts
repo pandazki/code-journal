@@ -304,7 +304,7 @@ describe('ProjectState defaults', () => {
     assert.equal(s.config.compose_threshold, 10);
     assert.equal(s.config.model, 'sonnet', 'haiku must NOT be the default (E1 finding)');
     assert.equal(s.config.lens_versions['strict-negative-space'], 'v2.1');
-    assert.equal(s.config.lens_versions['anchored-deferral'], 'v2.1');
+    assert.equal(s.config.lens_versions['anchored-deferral'], 'v3.0');
     assert.deepEqual(s.episodes, []);
     assert.deepEqual(s.agent_seen, []);
   });

@@ -57,7 +57,10 @@ event:
               explicit-uncertainty>
 **Anchor verbatim**: <copy AI's salience event>
 **User response verbatim**: <copy user's response>
-**Stance**: engaged | deferred | overrode | ignored
+**Stance**: engaged | assented | deferred | overrode | ignored
+              (engaged = user added reasoning/constraint/new option; assented =
+              bare approval of the AI's proposal, no direction added; deferred =
+              handed the choice back)
 **Redirected to**: <ONLY present when Stance = ignored — one short
               sentence naming the concrete new direction the user
               introduced. Source-anchored, no interpretation.>

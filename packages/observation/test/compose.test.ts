@@ -202,6 +202,8 @@ describe('compose · end-to-end with synthetic events', () => {
     assert.ok(result.markdown.includes('## Measurements'));
     assert.ok(result.markdown.includes('## Anchor distribution'));
     assert.ok(result.markdown.includes('## Stance distribution'));
+    assert.ok(result.markdown.includes('assented'), 'stance table includes the assented row');
+    assert.ok(/\*\*Shape\*\*: \(e=\d+, a=\d+, d=\d+, o=\d+, i=\d+\)/.test(result.markdown), '5-tuple shape');
     assert.ok(result.markdown.includes('## Findings — Strict negative-space'));
     assert.ok(result.markdown.includes('## Findings — Anchored deferral'));
     assert.ok(result.markdown.includes('## Fate updates'));

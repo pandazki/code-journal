@@ -1,0 +1,55 @@
+{
+  "lens_id": "anchored-deferral",
+  "session_id": "6d6ff5a5",
+  "project_code": "C",
+  "events": [
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "6d6ff5a5",
+      "project_code": "C",
+      "turn_anchor": "T65",
+      "timespan": "05:01-05:03",
+      "source_refs": [
+        {"type": "turn", "id": 65},
+        {"type": "turn", "id": 66}
+      ],
+      "payload": "**Anchor (AI salience event)**: ≥2-named-options\n\n**Anchor verbatim**: 三种选择，请定一下\n\n1. **启动代理软件**（如果你常用 Surge / ClashX），让 `localhost:6152` 能联通，然后我重跑 build\n2. **改 Docker Desktop 设置 → Resources → Proxies → 切到 \"System\" 或 \"No proxy\"**，再重跑（需要你手动改 GUI，改完后我重跑）\n3. **临时清空 Docker Desktop 的 proxy 配置**（修改 settings-store.json + 重启 Docker Desktop）— 我可以代劳，但属于改你工具配置，先请示\n\nbuild 日志在 `/tmp/local-e2e-build.log`，要我重跑前先告诉我哪个方案。\n\n**User response verbatim**: 切到主分支吧～ \n代理我已经关了。。 重新来吧\n\n**Stance**: overrode\n\n**Why this stance, not another**: User did not select any of the three options; instead redirected to a different axis entirely (switch branches and retry), rejecting the proxy-fix framing."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "6d6ff5a5",
+      "project_code": "C",
+      "turn_anchor": "T175",
+      "timespan": "05:23-05:27",
+      "source_refs": [
+        {"type": "turn", "id": 175},
+        {"type": "turn", "id": 176}
+      ],
+      "payload": "**Anchor (AI salience event)**: ≥2-named-options\n\n**Anchor verbatim**: 告诉我哪个我就开干。第 2 个是最快的，刚启动的栈正好是空的。\n\n（选项 1: 立即从快照恢复；选项 2: 重新从远程全量同步；选项 3: 本地服务直连远程 DB）\n\n**User response verbatim**: ok 你能尝试重新执行一次全部吗？ 然后不要覆盖本地的任何文件，映射到一个新的 user 上。。上一次映射到了一个叫 fake-ez@omne.dev 的邮箱。。你可以再换一个 比如 fake-ez-260429@omne.dev\n\n保持每个用户数据的独立，即使失败也不要影响现在的本地数据\n\n**Stance**: engaged\n\n**Why this stance, not another**: User selected option 2 (re-run full sync) but added new constraints not present in the AI's framing: new email identity, isolation requirement, and explicit non-overwrite rule — new content that shaped the execution path."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "6d6ff5a5",
+      "project_code": "C",
+      "turn_anchor": "T319",
+      "timespan": "07:19-08:05",
+      "source_refs": [
+        {"type": "turn", "id": 319},
+        {"type": "turn", "id": 320}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: 要我把 default 也加到排序里让 Samantha 第一个返回吗？\n\n**User response verbatim**: 有报错。你帮我看看日志？\n\n**Stance**: ignored\n\n**Redirected to**: asked the AI to inspect service logs after encountering an error in the browser\n\n**Why this stance, not another**: User did not acknowledge the yes/no question about sort order; instead introduced a new topic (runtime error requiring log inspection) without any reference to the anchor."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "6d6ff5a5",
+      "project_code": "C",
+      "turn_anchor": "T348",
+      "timespan": "08:09-08:09",
+      "source_refs": [
+        {"type": "turn", "id": 348},
+        {"type": "turn", "id": 349}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: 要不要我顺手把所有不属于当前 fake-ez-260429 的 agent 都设成 `stopped`，避免下次重启抢锁？或者保持现状先用着？\n\n**User response verbatim**: 好啊。。\n\n**Stance**: assented\n\n**Why this stance, not another**: Bare approval of the AI's specific proposal with no added reasoning, constraint, or new direction; the AI was driving and the user ratified."
+    }
+  ]
+}
