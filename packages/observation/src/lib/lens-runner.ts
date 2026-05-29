@@ -18,7 +18,7 @@
  *     so this is belt-and-suspenders.
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -65,7 +65,7 @@ export interface RunLensArgs {
   agent: AgentId;
   /** sonnet (default) or opus. haiku rejected. */
   model?: 'sonnet' | 'opus';
-  /** Timeout per scan in ms (default 5 min). */
+  /** Timeout per scan in ms (default 10 min — big sessions take time on sonnet). */
   timeoutMs?: number;
 }
 
@@ -140,17 +140,27 @@ type DispatchOutcome =
 
 function dispatchAndParse(prompt: string, args: RunLensArgs): DispatchOutcome {
   const model = args.model ?? 'sonnet';
-  const timeoutMs = args.timeoutMs ?? 300_000;
-  let stdout: string;
-  try {
-    stdout = execFileSync('claude', ['-p', prompt, '--model', model], {
-      encoding: 'utf8',
-      maxBuffer: 32 * 1024 * 1024,
-      timeout: timeoutMs,
-    });
-  } catch (err) {
-    return { kind: 'failed', reason: `claude -p failed: ${err instanceof Error ? err.message : String(err)}` };
+  const timeoutMs = args.timeoutMs ?? 600_000;
+  // Pipe the prompt through stdin instead of argv to avoid ARG_MAX
+  // (macOS default ~262144 chars; big digests easily blow this). claude -p
+  // reads stdin when no positional prompt arg is provided.
+  const result = spawnSync('claude', ['-p', '--model', model], {
+    input: prompt,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: timeoutMs,
+  });
+  if (result.error) {
+    return { kind: 'failed', reason: `claude -p failed: ${result.error.message}` };
   }
+  if (result.status !== 0) {
+    const stderr = (result.stderr ?? '').slice(0, 500);
+    return {
+      kind: 'failed',
+      reason: `claude -p exit ${result.status}: ${stderr || '(no stderr)'}`,
+    };
+  }
+  const stdout = result.stdout ?? '';
   const cleaned = stripFencing(stdout);
   let parsed: ParsedLensJSON;
   try {

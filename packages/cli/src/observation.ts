@@ -52,6 +52,7 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
     options: {
       project: { type: 'string', multiple: true },
       'scan-only': { type: 'boolean', default: false },
+      limit: { type: 'string' },
       verbose: { type: 'boolean', default: false },
     },
     allowPositionals: false,
@@ -59,12 +60,26 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
   const projectFilter = ((values.project as string[]) ?? []).map((s) => s.toLowerCase());
   const scanOnly = Boolean(values['scan-only']);
   const verbose = Boolean(values.verbose);
+  const limit = values.limit != null ? Math.max(1, Number(values.limit)) : Infinity;
+  if (values.limit != null && !Number.isFinite(Number(values.limit))) {
+    process.stderr.write(`sync: invalid --limit '${values.limit}'\n`);
+    return 2;
+  }
 
   const sessions = discoverAllSessions();
   const groups = groupSessionsByRepo(sessions, (cwd) => gitRepoKeyOf(cwd));
-  const inScope = (name: string): boolean =>
-    projectFilter.length === 0 || projectFilter.some((f) => name.toLowerCase().includes(f));
-  const targeted = groups.filter((g) => inScope(g.project.displayName));
+  const inScope = (project: { id: string; displayName: string }): boolean => {
+    if (projectFilter.length === 0) return true;
+    return projectFilter.some((f) => {
+      // Match against project.id (exact or substring) or displayName substring
+      return (
+        project.id.toLowerCase() === f ||
+        project.id.toLowerCase().includes(f) ||
+        project.displayName.toLowerCase().includes(f)
+      );
+    });
+  };
+  const targeted = groups.filter((g) => inScope(g.project));
 
   if (targeted.length === 0) {
     process.stdout.write('no projects found in scope\n');
@@ -79,8 +94,17 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
     const state = readProjectState(projectId, project.displayName);
 
     const alreadyScanned = new Set(state.last_scan.sessions_scanned);
-    const newSessions = group.sessions.filter((s) => !alreadyScanned.has(s.id));
+    const allNew = group.sessions.filter((s) => !alreadyScanned.has(s.id));
+    // Bias toward the most-recent unscanned sessions so the limit picks
+    // meaningful ones (not the oldest tiny bootstrap session).
+    const sortedNew = [...allNew].sort((a, b) => (b.mtimeMs ?? 0) - (a.mtimeMs ?? 0));
+    const newSessions = sortedNew.slice(0, Number.isFinite(limit) ? limit : sortedNew.length);
     total.discovered += group.sessions.length;
+    if (verbose && newSessions.length < allNew.length) {
+      process.stdout.write(
+        `  (--limit ${limit}: scanning ${newSessions.length}/${allNew.length} new sessions, most recent first)\n`,
+      );
+    }
 
     if (verbose) {
       process.stdout.write(
@@ -91,6 +115,7 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
 
     let agentsTouched = new Set<AgentId>(state.agent_seen);
     let projectEventsAppended = 0;
+    const successfullyScanned: string[] = [];
 
     for (const session of newSessions) {
       try {
@@ -99,6 +124,12 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
         projectEventsAppended += result.appended;
         total.scanned += 1;
         total.eventsAppended += result.appended;
+        // Only successful scans land in sessions_scanned. Failed sessions
+        // get retried on next sync — important for transient failures
+        // (timeouts, rate limits) and prompt fixes. If a session
+        // permanently fails (e.g. too big), the user can manually
+        // exclude it later.
+        successfullyScanned.push(session.id);
       } catch (err) {
         total.failed += 1;
         process.stderr.write(
@@ -107,14 +138,15 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
       }
     }
 
-    // Update state
+    // Update state — only record successfully-scanned sessions to avoid
+    // permanently shadowing a session that hit a transient failure.
     const updated: ProjectState = {
       ...state,
       display_name: state.display_name || project.displayName,
       agent_seen: [...agentsTouched],
       last_scan: {
         at: new Date().toISOString(),
-        sessions_scanned: [...new Set([...alreadyScanned, ...newSessions.map((s) => s.id)])],
+        sessions_scanned: [...new Set([...alreadyScanned, ...successfullyScanned])],
         _extra: state.last_scan._extra,
       },
       new_events_since_last_compose: state.new_events_since_last_compose + projectEventsAppended,
