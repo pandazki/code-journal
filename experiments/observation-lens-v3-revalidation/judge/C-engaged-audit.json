@@ -1,0 +1,16 @@
+[
+  {
+    "turn_anchor": "T356",
+    "runs_engaged": 3,
+    "user_quote": "好啊。。",
+    "class": "ASSENT",
+    "why": "AI offered two named options (set non-current agents to `stopped`, or keep as-is). The user replied with bare approval '好啊。。' — one of the canonical assent tokens — with no reasoning and without naming which option. It reads as generic encouragement to proceed rather than a substantive selection among the named options, so it would be better classified as deferred/no-event. All 3 runs called it engaged, conflating mere assent with engagement."
+  },
+  {
+    "turn_anchor": "T176",
+    "runs_engaged": 1,
+    "user_quote": "ok 你能尝试重新执行一次全部吗？ 然后不要覆盖本地的任何文件，映射到一个新的 user 上。。上一次映射到了一个叫 fake-ez@omne.dev 的邮箱。。你可以再换一个 比如 fake-ez-260429@omne.dev\n\n保持每个用户数据的独立，即使失败也不要影响现在的本地数据",
+    "class": "SUBSTANTIVE",
+    "why": "AI offered three named options (full fresh re-sync / restore from existing snapshot / direct-connect to remote DB). The user picked option 1 (re-run the full flow) AND added substantive new constraints: map to a distinct new user (fake-ez-260429@omne.dev instead of the prior fake-ez@omne.dev), do not overwrite any local files, and keep each user's data isolated so a failure cannot affect existing local data. Concrete pick plus constructive elaboration — genuine engagement. Only run 2 flagged this turn as an anchor at all."
+  }
+]

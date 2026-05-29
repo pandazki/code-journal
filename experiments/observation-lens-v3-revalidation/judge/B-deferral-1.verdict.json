@@ -1,0 +1,65 @@
+[
+  {
+    "turn_anchor": "T12",
+    "grounded": true,
+    "anchor_real": true,
+    "stance_correct": "correct",
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "Anchor verbatim (line 177) and user response (line 181) both appear exactly at the cited turns. The AI ended with an explicit direct-ask for the data location; the user answered a different question (research Cowork's mechanism) rather than supplying the location, a genuine redirect. Weakest angle: 'ignored' borderline with 'overrode' since the new direction stays on the same Cowork topic, but the original location question is clearly left hanging while a new task is launched, so 'ignored' holds."
+  },
+  {
+    "turn_anchor": "T32",
+    "grounded": true,
+    "anchor_real": true,
+    "stance_correct": "defensible-but-borderline",
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "Anchor (line 451) and user response ' 能加进去吗？' (line 457) are verbatim. Two named options (write spec/issue vs. dump-validation script) genuinely presented. Stance 'overrode' is borderline: ' 能加进去吗？' is a terse new question that bypasses both options rather than a forceful redirect; it could also read as 'ignored'. But it is a real user-injected pivot away from the offered framing, so the event survives."
+  },
+  {
+    "turn_anchor": "T44",
+    "grounded": true,
+    "anchor_real": true,
+    "stance_correct": "correct",
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "Anchor ' 要我直接开始吗?还是你想先看一眼 §3 新规则的完整措辞再定?' (line 622) and user response (line 626) are verbatim. Clear direct-ask with a chosen option ('那你加上去吧') plus a substantive usage-semantics spec, so 'engaged' is unambiguous. No real refutation."
+  },
+  {
+    "turn_anchor": "T85",
+    "grounded": false,
+    "anchor_real": true,
+    "stance_correct": "wrong:not-applicable",
+    "genuine_injection": true,
+    "verdict": "REFUTED",
+    "refutation": "FABRICATED ANCHOR: the quoted three-bullet '接下来想怎样,你选' block does NOT appear at T85. That block exists only once in the whole digest, at T127 (line 1481). The real T85 (lines 952-991) ends with a different two-option question ('要我现在帮你跑一遍这个验证吗?或者你想先 git diff 看下完整改动再说'). The user response (line 995) is real and the user did redirect, but the cited anchor verbatim is copied from T127 and is grounded=false; this is a duplicate/fabricated event."
+  },
+  {
+    "turn_anchor": "T102",
+    "grounded": true,
+    "anchor_real": true,
+    "stance_correct": "defensible-but-borderline",
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "Anchor (two directories + recommendation, lines 1204-1213) and user response '你直接启动客户端吧' (line 1245) are verbatim. Two named options genuinely offered. Stance 'overrode' vs 'ignored' is borderline since the redirect (launch client) stays within the same testing thread and the directory choice simply hangs; 'ignored' could fit equally. But a real user redirect away from the offered choice did occur, so the event survives."
+  },
+  {
+    "turn_anchor": "T127",
+    "grounded": true,
+    "anchor_real": true,
+    "stance_correct": "correct",
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "Anchor three-bullet menu (lines 1481-1484) and user response (line 1488) are verbatim. Three named options offered; user ignored all three and (re)directed to launching the Electron client. 'ignored' with redirected_to is correct. Weakest angle: the user prefixes '啊 我说' indicating frustration/correction, which leans toward 'overrode'; but none of the three options is acknowledged, so 'ignored' is the better fit."
+  },
+  {
+    "turn_anchor": "T152",
+    "grounded": false,
+    "anchor_real": true,
+    "stance_correct": "correct",
+    "genuine_injection": true,
+    "verdict": "WEAK",
+    "refutation": "Partial fabrication: option 2's label/description in the anchor verbatim ('连 sessions.ts 一起补完再推 — 彻底补完整条链路才推。sessions.ts 这块是真正的 TS 活……要多花点时间') is NOT visible in the digest, which truncates it as '…(truncated, original 656 chars)… 大、要多花点时间。' (lines 1820-1821); the question is also paraphrased (header '推送范围' fused with a shortened question). However the option-2 selection value '连 sessions.ts 一起补完再推' appears verbatim in the T153 tool_result, so the real AskUserQuestion anchor and the 'engaged' selection are genuine — only the reconstructed verbatim is partly unverifiable against the digest."
+  }
+]

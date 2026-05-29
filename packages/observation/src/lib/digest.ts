@@ -72,7 +72,11 @@ export function digestClaudeCodeTranscript(args: DigestArgs): DigestResult {
     }
 
     const t = obj.type;
-    if (t !== 'user' && t !== 'assistant') continue; // skip queue-operation, hook_*, meta, etc.
+    if (t !== 'user' && t !== 'assistant') continue; // skip queue-operation, hook_*, system, etc.
+    // Skip system-injected pseudo-user messages (e.g. "Continue from where you
+    // left off.", compaction resumes). These carry isMeta and are NOT the human
+    // — rendering them as user turns lets a lens anchor on a non-user "direction".
+    if (obj.isMeta) continue;
 
     const msg = obj.message;
     if (!msg) continue;
@@ -121,12 +125,18 @@ function extractTurn(
   if (bt === 'text' || bt === 'output_text' || bt === 'input_text') {
     const text = String(block.text ?? '').trim();
     if (text.length === 0) return null;
+    // System-injected text on the user channel (agent task-completion
+    // notifications, slash-command echoes) is not human direction — drop it so
+    // a lens can't anchor on it as a "user turn".
+    if (role === 'user' && isSystemInjectedUserText(text)) return null;
     return { id, role, kind: 'text', ts, text: truncate(text, TEXT_MAX) };
   }
   if (bt === 'thinking') {
-    const text = String(block.thinking ?? block.text ?? '').trim();
-    if (text.length === 0) return null;
-    return { id, role, kind: 'thinking', ts, text: truncate(text, TEXT_MAX) };
+    // Deliberately dropped: the lenses anchor on what was *surfaced to the user*.
+    // The AI's private "I could do A or B" monologue is not a proposal the user
+    // declined — feeding it to the negative-space lens manufactures phantom
+    // proposals. The validated Phase-1/2 digests never contained thinking.
+    return null;
   }
   if (bt === 'tool_use' || bt === 'server_tool_use') {
     const name = String(block.name || 'tool');
@@ -216,6 +226,22 @@ function renderMarkdown(
   return out.join('\n');
 }
 
+/**
+ * Claude Code injects machine-generated text into the user role using XML-ish
+ * envelopes. These are not human direction and must not become "user turns".
+ */
+const SYSTEM_USER_TAGS = [
+  '<task-notification>',
+  '<local-command-stdout>',
+  '<command-name>',
+  '<command-message>',
+  '<command-args>',
+];
+function isSystemInjectedUserText(text: string): boolean {
+  const head = text.trimStart();
+  return SYSTEM_USER_TAGS.some((tag) => head.startsWith(tag));
+}
+
 function truncate(s: string, n: number): string {
   if (typeof s !== 'string') s = String(s);
   if (s.length <= n) return s;
@@ -249,6 +275,11 @@ function extractSessionIdFromFilename(path: string): string {
 
 function briefToolInput(name: string, input: any): string {
   if (!input || typeof input !== 'object') return JSON.stringify(input ?? null);
+  // AskUserQuestion is the single most decision-bearing tool — it IS an explicit
+  // anchor for the lens. Render its questions + options + descriptions in full,
+  // never truncated, so the lens can quote option text verbatim (the T152
+  // grounding failure was truncated option-2 text).
+  if (name === 'AskUserQuestion') return formatAskUserQuestion(input);
   const keep: Record<string, string[]> = {
     Bash: ['command', 'description'],
     Read: ['file_path', 'limit', 'offset'],
@@ -265,4 +296,22 @@ function briefToolInput(name: string, input: any): string {
   const slim: any = {};
   for (const k of keys) if (k in input) slim[k] = input[k];
   return truncate(JSON.stringify(slim, null, 2), 500);
+}
+
+/** Full, readable rendering of an AskUserQuestion tool input — no truncation. */
+function formatAskUserQuestion(input: any): string {
+  const questions: any[] = Array.isArray(input.questions) ? input.questions : [];
+  if (questions.length === 0) return JSON.stringify(input);
+  const out: string[] = [];
+  for (const q of questions) {
+    if (!q || typeof q !== 'object') continue;
+    out.push(`Q: ${String(q.question ?? '').trim()}`);
+    if (q.header) out.push(`   (${String(q.header).trim()}${q.multiSelect ? ', multi-select' : ''})`);
+    const options: any[] = Array.isArray(q.options) ? q.options : [];
+    for (const o of options) {
+      if (!o || typeof o !== 'object') continue;
+      out.push(`   - ${String(o.label ?? '').trim()}: ${String(o.description ?? '').trim()}`);
+    }
+  }
+  return out.join('\n');
 }

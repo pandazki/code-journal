@@ -1,0 +1,33 @@
+{
+  "lens_id": "strict-negative-space",
+  "session_id": "tripwire-0001",
+  "project_code": "TW1",
+  "events": [
+    {
+      "lens_id": "strict-negative-space",
+      "session_id": "tripwire-0001",
+      "project_code": "TW1",
+      "turn_anchor": "T10-T13",
+      "timespan": "13:08-13:11",
+      "source_refs": [
+        {"type": "turn", "id": 10},
+        {"type": "turn", "id": 11},
+        {"type": "turn-range", "from": 12, "to": 13}
+      ],
+      "payload": "**Arc**: Config file loader has been written (`src/config.ts`) with `js-yaml` and local/home search path. The AI is proposing next steps.\n\n**Before**: AI proposes adding `zod`-based schema validation to the config loader so that invalid configs produce an error-on-exit rather than silent dirty data downstream.\n\n**Event (AI proposal — verbatim)**: \"接下来我可以给 loader 加 schema 校验,用 `zod` 定义 config 的 shape,非法配置直接报错退出,避免后面拿到脏数据。要加这个吗?\"\n\n**Event (user response — verbatim)**: \"算了,先别加校验。我现在更想要的是:配置能被环境变量覆盖,像 `MYCLI_PORT` 这种,运行时优先级最高。先做这个。\"\n\n**Event classification**: negative-space\n\n**After — concrete artifacts**: `src/env-override.ts` created at T12 implementing `MYCLI_`-prefixed environment variable overrides. The zod schema validation was not added in any subsequent turn.\n\n**Why this satisfies the criteria**: (a) The AI named a specific library (`zod`) and a specific mechanism (schema-validated config with error-exit), making the proposal identifiable. (b) The user explicitly declined (\"算了,先别加校验\") without addressing the proposal further. (c) Subsequent work at T12-T13 created a new file on a different axis (runtime env-var override), not schema validation."
+    },
+    {
+      "lens_id": "strict-negative-space",
+      "session_id": "tripwire-0001",
+      "project_code": "TW1",
+      "turn_anchor": "T18-T21",
+      "timespan": "13:18-13:21",
+      "source_refs": [
+        {"type": "turn", "id": 18},
+        {"type": "turn", "id": 19},
+        {"type": "turn-range", "from": 20, "to": 21}
+      ],
+      "payload": "**Arc**: README has been updated with the Configuration section. The AI announces it will next update `CHANGELOG.md` to record the config feature.\n\n**Before**: AI proposes updating `CHANGELOG.md` to log the newly added configuration functionality.\n\n**Event (AI proposal — verbatim)**: \"我接着把 `CHANGELOG.md` 也更新一下,记一笔这次的配置功能。\"\n\n**Event (user response — verbatim)**: \"等一下 —— 先别管 README 和 CHANGELOG。我突然想到 config 加载失败时现在是直接 crash 吧?先去 `src/cli.ts` 把加载包一层 try/catch,给个友好报错再退出。这个更优先。\"\n\n**Event classification**: negative-space\n\n**After — concrete artifacts**: `src/cli.ts` edited at T20 to wrap `loadConfig()` in a try/catch with a friendly error message and `exit(1)`. `CHANGELOG.md` was not touched in any subsequent turn.\n\n**Why this satisfies the criteria**: (a) The AI named a specific file (`CHANGELOG.md`) and a specific action (record the config feature), making the proposal identifiable. (b) The user explicitly redirected away (\"先别管 README 和 CHANGELOG\") without addressing the changelog update. (c) Subsequent work at T20-T21 edited `src/cli.ts` on a different axis (error handling), not changelog documentation."
+    }
+  ]
+}

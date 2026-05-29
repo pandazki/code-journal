@@ -26,6 +26,8 @@ import {
   readProjectState,
   writeProjectState,
   runLens,
+  checkEventGrounding,
+  turnsFromDigest,
   LENS_IDS,
   type ProjectState,
   type LensId,
@@ -237,7 +239,29 @@ function scanOneSession(
     if (!result.ok) {
       throw new Error(`${lensId} failed: ${result.reason}`);
     }
-    const { appended } = appendSignals(projectId, lensId, result.events);
+    // Grounding gate: drop events whose AI-proposal verbatim can't be located
+    // at the cited turn (or that violate proposal-before-response chronology)
+    // before they enter the append-only store. The store is immutable, so an
+    // ungrounded/fabricated event there is permanent — gate at ingestion.
+    const turns = turnsFromDigest(digestResult.turns);
+    const grounded: typeof result.events = [];
+    let droppedCount = 0;
+    for (const ev of result.events) {
+      const check = checkEventGrounding(ev, turns);
+      if (check.grounded) {
+        grounded.push(ev);
+      } else {
+        droppedCount += 1;
+        if (verbose) {
+          const failed = check.checks.filter((c) => c.fatal && !c.pass).map((c) => c.name).join('+');
+          process.stdout.write(`    ✗ dropped ungrounded ${lensId} event @${ev.turn_anchor} (${failed})\n`);
+        }
+      }
+    }
+    if (droppedCount > 0 && !verbose) {
+      process.stdout.write(`  → ${session.id.slice(0, 8)} · ${lensId}: dropped ${droppedCount} ungrounded event(s)\n`);
+    }
+    const { appended } = appendSignals(projectId, lensId, grounded);
     appendedTotal += appended;
   }
   return { appended: appendedTotal };

@@ -1,0 +1,56 @@
+{
+  "lens_id": "anchored-deferral",
+  "session_id": "6d6ff5a5",
+  "project_code": "C",
+  "events": [
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "6d6ff5a5",
+      "project_code": "C",
+      "turn_anchor": "T65",
+      "timespan": "05:01-05:03",
+      "source_refs": [
+        {"type": "turn", "id": 65},
+        {"type": "turn", "id": 66}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask | ≥2-named-options\n\n**Anchor verbatim**: 三种选择，请定一下\n\n1. **启动代理软件**（如果你常用 Surge / ClashX），让 `localhost:6152` 能联通，然后我重跑 build\n2. **改 Docker Desktop 设置 → Resources → Proxies → 切到 \"System\" 或 \"No proxy\"**，再重跑（需要你手动改 GUI，改完后我重跑）\n3. **临时清空 Docker Desktop 的 proxy 配置**（修改 settings-store.json + 重启 Docker Desktop）— 我可以代劳，但属于改你工具配置，先请示\n\nbuild 日志在 `/tmp/local-e2e-build.log`，要我重跑前先告诉我哪个方案。\n\n**User response verbatim**: 切到主分支吧～ \n代理我已经关了。。 重新来吧\n\n**Stance**: overrode\n\n**Why this stance, not another**: The user bypassed all three offered options by taking an independent action (自行关闭代理) and redirected to a different axis entirely (切换分支 + 重跑), rejecting the proxy-fix framing."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "6d6ff5a5",
+      "project_code": "C",
+      "turn_anchor": "T301",
+      "timespan": "06:38-07:17",
+      "source_refs": [
+        {"type": "turn", "id": 301},
+        {"type": "turn", "id": 302},
+        {"type": "turn", "id": 303}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: Want me to /schedule an agent in 2 weeks to clean up the `seed-260429-fake-ez-260429` snapshot dir + the migrate_*_260429.py scripts if you don’t end up using them?\n\n**User response verbatim**: [Image #1] 是不是哪个表要先插入个数据？ 还是说要重启？\n\n**Stance**: ignored\n\n**Redirected to**: reported a login error visible in a screenshot and asked whether a table needs pre-populated data or a restart is required.\n\n**Why this stance, not another**: The user did not acknowledge the cleanup-scheduling question at all; their next message addressed a new error visible in an attached screenshot, leaving the direct-ask unaddressed while work continued in a different direction."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "6d6ff5a5",
+      "project_code": "C",
+      "turn_anchor": "T327",
+      "timespan": "07:19-07:17",
+      "source_refs": [
+        {"type": "turn", "id": 327},
+        {"type": "turn", "id": 328}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: 要我把 default 也加到排序里让 Samantha 第一个返回吗？\n\n**User response verbatim**: 有报错。你帮我看看日志？\n\n**Stance**: ignored\n\n**Redirected to**: reported a new runtime error and requested the AI inspect the container logs.\n\n**Why this stance, not another**: The user did not engage with the ordering question; instead they reported an active error and redirected the work to log inspection, leaving the direct-ask unaddressed."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "6d6ff5a5",
+      "project_code": "C",
+      "turn_anchor": "T356",
+      "timespan": "08:09-08:09",
+      "source_refs": [
+        {"type": "turn", "id": 356},
+        {"type": "turn", "id": 357}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask | ≥2-named-options\n\n**Anchor verbatim**: 要不要我顺手把所有不属于当前 fake-ez-260429 的 agent 都设成 `stopped`，避免下次重启抖锁？或者保持现状先用着？\n\n**User response verbatim**: 好啊。。\n\n**Stance**: engaged\n\n**Why this stance, not another**: The user picked the first concrete option (顺手改成 stopped) by affirming it; this is a substantive decision selecting one of the two named options rather than deferring or redirecting."
+    }
+  ]
+}

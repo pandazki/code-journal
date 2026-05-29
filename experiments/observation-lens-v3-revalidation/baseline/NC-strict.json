@@ -1,0 +1,7 @@
+{
+  "lens_id": "strict-negative-space",
+  "session_id": "negctrl-0001",
+  "project_code": "NC",
+  "events": [],
+  "empty_state_reason": "Scanned 24 turns; found 0 events. Every AI proposal that met the specificity threshold (T2, T7, T11, T16, T20) was either accepted by the user or explicitly delegated back to the AI, so leg (b) — user did not take it up — is never satisfied."
+}

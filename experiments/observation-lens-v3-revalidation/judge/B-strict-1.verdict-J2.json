@@ -1,0 +1,50 @@
+[
+  {
+    "event_index": 0,
+    "turn_anchor": "T32-T45",
+    "grounded": true,
+    "grounded_note": "AI proposal verbatim at T32 (digest line 451) matches: spec/feature-issue in .scratch OR a dump-validation script for userSelectedFolders before deciding the plan. User response ' 能加进去吗?' at T33 (line 457) matches exactly. Quotes are faithful (curly-quote substitution only).",
+    "leg1_specific": true,
+    "leg1_note": "Two concrete named options (spec/feature-issue in .scratch/, dump script targeting userSelectedFolders). Specific and identifiable.",
+    "leg2_nottaken": true,
+    "leg2_note": "User did not pick up either preliminary option; 'can it be added?' pulled toward implementation feasibility.",
+    "leg3_different_axis": false,
+    "leg3_note": "The proposal's AXIS was adding Cowork support; the two options were merely PRELIMINARY/process steps (write a spec first, or validate first) before that same implementation. The subsequent work (T44 plan, T45 user ' 那你加上去吧 ', T49-T80 edits to work-log-synthesizer.md/README/CHANGELOG) IS the Cowork implementation the research was building toward. Declining 'spec first / validate first' and going straight to implementing the same feature is process-skip / normal steering, not a genuinely DIFFERENT axis. Lens spec ❌ bullet: 'User explored AI's proposal and then steered it → engagement, not negative-space.'",
+    "genuine_injection": false,
+    "genuine_injection_note": "Same goal both sides; no orthogonal new direction injected, only skipping the proposed pre-work.",
+    "verdict": "WEAK",
+    "refutation": "Grounded and legs 1-2 hold, but leg3 fails: the 'spec-or-validate-first' proposal and the subsequent direct implementation share one axis — adding Cowork support (T44-T80). User merely skipped the proposed preliminary steps; this is steering/process-skip, not a macro pivot to a different axis."
+  },
+  {
+    "event_index": 1,
+    "turn_anchor": "T85-T95",
+    "grounded": true,
+    "grounded_note": "AI three-option proposal verbatim at T85 (digest lines 1481-1484): run /work-memory:work-report; keep/delete mock-user/mock-org/agent-production test project; commit on a new branch. User response 'ok 你本地启动 我找个 cowork 的目录试试效果' at T86 (line 995) matches.",
+    "leg1_specific": true,
+    "leg1_note": "Three named, actionable options.",
+    "leg2_nottaken": true,
+    "leg2_note": "User addressed none of the three; redirected to 'start it locally so I can try a cowork dir.'",
+    "leg3_different_axis": true,
+    "leg3_note": "Subsequent work (T87-T95 build + smoke-test, leading to launching the host) is preparing/launching the app for user self-testing — a different axis from work-report projection, test-project cleanup, or committing. None of the three was executed in-session.",
+    "genuine_injection": true,
+    "genuine_injection_note": "User injected a new direction (launch locally for hands-on trial) orthogonal to the wrap-up trio.",
+    "verdict": "REAL",
+    "refutation": "Cannot refute: quotes verbatim and accurate at T85/T86; all three proposed wrap-up actions were dropped and the conversation pivoted to building/launching for user self-test (T87-T95, culminating T137-T138). Genuine negative-space."
+  },
+  {
+    "event_index": 2,
+    "turn_anchor": "T102-T114",
+    "grounded": true,
+    "grounded_note": "AI's user-run terminal procedure verbatim at T102 (digest lines 1215-1227): cd into AgentProduction, claude --plugin-dir, then /work-memory:work-log-init and /work-memory:work-log; AgentProduction named as recommended dir. User response '你直接启动客户端吧' at T103 (line 1245) matches.",
+    "leg1_specific": true,
+    "leg1_note": "Specific multi-step procedure with named commands and named target dir.",
+    "leg2_nottaken": true,
+    "leg2_note": "User declined to run the procedure themselves, asking the AI to launch instead.",
+    "leg3_different_axis": false,
+    "leg3_note": "EXECUTOR-SWAP, not a different axis. The WORK is identical — run the work-log synthesizer against AgentProduction (the AI's own recommended target). T104-T114 has the AI init AgentProduction and run '/work-memory:work-log' headless (T114) — i.e. it executed the very same /work-log step it had told the user to run, just headlessly instead of in a user terminal. Lens spec explicitly warns against 'executor-swap dramatized as a pivot.' Same axis (validate Cowork synthesizer on AgentProduction), only who-executes changed.",
+    "genuine_injection": false,
+    "genuine_injection_note": "No new direction injected; user said 'you launch it directly' = transfer execution, same task.",
+    "verdict": "REFUTED",
+    "refutation": "Leg3 fails: the AI's post-T103 work (T107 init AgentProduction, T114 'claude -p /work-memory:work-log') IS the same procedure it proposed at T102 — same target dir, same /work-log step — merely executed headlessly by the AI instead of by the user in a terminal. That is an executor-swap, which the lens spec explicitly excludes, not a different-axis pivot."
+  }
+]

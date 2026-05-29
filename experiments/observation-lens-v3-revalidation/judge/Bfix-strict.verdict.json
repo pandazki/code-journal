@@ -1,0 +1,50 @@
+[
+  {
+    "file": "Bfix-strict-1.json",
+    "event_index": 0,
+    "turn_anchor": "T44-T85",
+    "grounded": false,
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg3_different_axis": true,
+    "genuine_injection": false,
+    "verdict": "REFUTED",
+    "refutation": "GROUNDING FAILURE. The AI-proposal verbatim ('要不要我把这块写成一个 spec / 在 .scratch/ 开个 feature issue?或者先做一个最小验证...') does NOT appear at the cited turns. source_refs lists {turn 44} and {turn 45}, but that exact text lives at T32 (digest line 451). The message that actually appears at T44 (lines 580-622) is a DIFFERENT proposal — a finalized implementation plan ending '方案确认的话我就动手...要我直接开始吗?还是你想先看一眼 §3 新规则的完整措辞再定?'. The user-response quote ('那你加上去吧 。。') is correctly at T45 (line 626), but the AI proposal is misattributed. Since the cited turn does not contain the quoted proposal, the critical grounding check fails. (Also overlaps File2-Event1 which correctly cites the same proposal at T32.)"
+  },
+  {
+    "file": "Bfix-strict-1.json",
+    "event_index": 1,
+    "turn_anchor": "T102-T140",
+    "grounded": true,
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg3_different_axis": false,
+    "genuine_injection": false,
+    "verdict": "WEAK",
+    "refutation": "GROUNDED ok: AI proposal (the '## 测试步骤(在一个新终端里)' CLI sequence) is verbatim at T102 (lines 1215-1227); user response '你直接启动客户端吧' is verbatim at T103 (line 1245). Leg1 specific: yes. Leg2: user redirected without running the steps. BUT leg3/genuine_injection are weak: the immediate subsequent work (T104-T126) actually EXECUTED the proposed synthesizer step — AI ran headless 'claude -p /work-memory:work-log' at T114 and verified agent_backend:cowork at T122-T126, i.e. along the proposed axis. The Electron-GUI pivot cited as 'After' (T129-T140) was triggered not by the T103 response but by a NEW user message at T127 ('啊 我说你启动一下 electron 客户端'), which the event omits. The cited 'different axis' work belongs to T127, not T103, so the negative-space pairing is overstated."
+  },
+  {
+    "file": "Bfix-strict-2.json",
+    "event_index": 0,
+    "turn_anchor": "T32-T45",
+    "grounded": true,
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg3_different_axis": true,
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "GROUNDED: AI proposal verbatim at T32 (line 451); user response '能加进去吗？' verbatim at T33 (line 457). Leg1: two named alternatives (.scratch/ spec/issue OR a dump script validating userSelectedFolders across sessions) — specific. Leg2: '能加进去吗' redirects to implementation without picking up either named pre-step. Leg3: subsequent work (T49-T70 direct synthesizer prompt edits, T75/T77 README, T79 CHANGELOG, confirmed git diff --stat at T84) went along the implementation axis with no spec written and no validation script run. Minor nuance: the explicit go-ahead is actually T45 ('那你加上去吧'), with T44 re-proposing; the cited range 46-70 follows T45, so the after-evidence is sound. Defensible REAL."
+  },
+  {
+    "file": "Bfix-strict-2.json",
+    "event_index": 1,
+    "turn_anchor": "T85-T95",
+    "grounded": false,
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg3_different_axis": true,
+    "genuine_injection": false,
+    "verdict": "REFUTED",
+    "refutation": "GROUNDING FAILURE + chronologically impossible pairing. The AI-proposal verbatim ('接下来想怎样,你选:- 跑 /work-memory:work-report... - 这个测试项目要保留...还是我帮你清掉; - 改动满意的话,我可以提交(会先开个分支)。') does NOT appear at the cited T85. It lives at T126 (lines 1471-1474), AFTER end-to-end verification. T85 (lines 952-991) is a different message ('加好了。纯 prompt 改动...要我现在帮你跑一遍这个验证吗?'). The user-response quote 'ok 你本地启动 我找个 cowork 的目录试试效果' is at T86 (line 995), which follows T85 — NOT T126. So the event pairs T126's three-option proposal with T86's response, but T86 precedes T126 by ~40 turns; the response and the cited 'After' work (T87-T114) chronologically PRECEDE the proposal. The pairing is fabricated/misgrounded: the response could not be a non-uptake of a proposal that had not yet been made."
+  }
+]

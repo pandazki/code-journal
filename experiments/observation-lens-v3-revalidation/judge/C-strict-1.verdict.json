@@ -1,0 +1,22 @@
+[
+  {
+    "turn_anchor": "T65-T87",
+    "grounded": true,
+    "leg1_specific": true,
+    "leg2_nottaken": false,
+    "leg3_different_axis": false,
+    "genuine_injection": false,
+    "verdict": "WEAK",
+    "refutation": "The AI's proposal axis was \"resolve the Docker proxy so the build works,\" and the user DID resolve it — \"代理我已经关了\" (proxy turned off), and T69 shows ProxyHTTPMode flipped to `system`, which is precisely option 2's intended outcome. So leg 2 fails: the user took up the substance of the proposal (just out-of-band, not via an AI-executed path). Leg 3 also fails: the only genuinely \"different\" item is the incidental \"切到主分支\" add-on; the dominant subsequent work (rebuild succeeding because the proxy was fixed) is exactly the AI's stated goal, not a pivot to a different axis. The lens dramatized a self-resolved blocker plus a minor branch switch as a macro-pivot."
+  },
+  {
+    "turn_anchor": "T301-T327",
+    "grounded": true,
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg3_different_axis": true,
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "Best case against: the `/schedule` cleanup offer is a throwaway optional housekeeping line at the tail of a summary, not a direction the AI was driving, which makes the \"negative space\" low-stakes; also the cited user quote is transcribed as \"[图片 #1]\" whereas the digest reads \"[Image #1]\" (minor non-verbatim drift). But all three legs hold against the source: specific named proposal (/schedule, 2 weeks, named dir + migrate_*_260429.py), user ignored it entirely, and T304-T326 verifiably pivoted to diagnosing the login failure via omne_catalog_entries inserts and mock_user metadata patches. Cannot refute."
+  }
+]

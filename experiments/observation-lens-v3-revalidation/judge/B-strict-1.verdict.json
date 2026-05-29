@@ -1,0 +1,32 @@
+[
+  {
+    "turn_anchor": "T32-T45",
+    "grounded": true,
+    "leg1_specific": true,
+    "leg2_nottaken": false,
+    "leg3_different_axis": false,
+    "genuine_injection": false,
+    "verdict": "REFUTED",
+    "refutation": "The T32 verbatim proposal (spec/.scratch issue OR dump-validation script) and T33 \"能加进去吗？\" are real, but the user's question was a feasibility query that the AI answered at T44 with a concrete 5-edit implementation plan, which the user explicitly approved at T45 (\"那你加上去吧\"). The subsequent edits (T49+) followed that approved AI plan along the very same axis (add Cowork support), so this is engagement, not negative-space: leg2 and leg3 both fail."
+  },
+  {
+    "turn_anchor": "T85-T95",
+    "grounded": false,
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg3_different_axis": false,
+    "genuine_injection": false,
+    "verdict": "REFUTED",
+    "refutation": "The quoted three-option proposal (run /work-memory:work-report; keep-or-delete the test project; commit on a branch) does NOT appear at T85 — it appears verbatim at T127 (lines 1481-1484). T85 actually ends with a different offer (\"要我现在帮你跑一遍这个验证吗？或者你想先 git diff\"). The event conflates the T127 proposal text with the T86 user reply, so the cited grounding is false."
+  },
+  {
+    "turn_anchor": "T102-T114",
+    "grounded": true,
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg3_different_axis": false,
+    "genuine_injection": false,
+    "verdict": "WEAK",
+    "refutation": "Quotes are grounded (T102 terminal procedure, T103 \"你直接启动客户端吧\"), but the user only swapped the executor, not the axis: the AI then ran exactly the proposed steps — init AgentProduction (T107-T112) then the work-log synthesizer (T114) against the same recommended directory. Same axis executed by the AI instead of the user is not a different-axis pivot, so leg3 fails."
+  }
+]

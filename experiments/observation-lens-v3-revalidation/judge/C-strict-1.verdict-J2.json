@@ -1,0 +1,30 @@
+[
+  {
+    "turn_anchor": "T65-T87",
+    "grounded": true,
+    "grounded_note": "AI proposal verbatim (三种选择 + 3 numbered options) matches digest T65 lines 691-697 exactly. User response 切到主分支吧～ / 代理我已经关了。。 重新来吧 matches T66 lines 701-702 exactly. After-artifacts (git checkout main T68, docker compose build T71, up -d T82, 14 containers healthy T87) all verified.",
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg2_note": "User picked none of the 3 named paths; resolved proxy off-screen (代理我已经关了) and added a branch switch.",
+    "leg3_different_axis": false,
+    "leg3_note": "All three AI options served one goal: make the docker build succeed by clearing the proxy blocker. The user cleared the SAME blocker (turned proxy off themselves) and the subsequent work (T68-T87) was checkout main + rerun the very same docker compose build/up. This is the same axis (get the local-e2e stack built and healthy) via a self-resolved version of the proxy fix, plus a minor branch-switch instruction — exactly the lens's 'self-resolved blocker dramatized as a pivot' anti-pattern, not a different axis.",
+    "genuine_injection": false,
+    "genuine_injection_note": "The 'pivot' is a re-described continuation of the same build objective; no genuine direction change was injected.",
+    "verdict": "REFUTED",
+    "refutation": "Leg 3 fails: the AI's 3 options and the user's action both aimed at a successful rebuild, and T68-T87 is the identical docker compose build/up continuation (T71, T82), so the user merely self-resolved the proxy blocker rather than moving to a different axis."
+  },
+  {
+    "turn_anchor": "T301-T327",
+    "grounded": true,
+    "grounded_note": "AI proposal verbatim (Want me to /schedule an agent in 2 weeks to clean up the seed-260429-fake-ez-260429 snapshot dir + the migrate_*_260429.py scripts...) matches digest T301 line 3333 exactly. User response Chinese (是不是哪个表要先插入个数据？还是说要重启？) matches T302 line 3337; minor label mismatch — JSON writes '[图片 #1]' but source reads '[Image #1]' — substantive verbatim text is correct. After-artifacts (diagnose login, omne_catalog_entries inserts T319/T325, login API 200 T326-T327) verified.",
+    "leg1_specific": true,
+    "leg2_nottaken": true,
+    "leg2_note": "User ignored the cleanup-scheduling offer entirely and raised an unrelated login problem with a screenshot.",
+    "leg3_different_axis": true,
+    "leg3_note": "Cleanup-scheduling is housekeeping; subsequent work T304-T327 is auth/login debugging (table tracing, DB inserts, metadata patch). Genuinely different axis, never returns to scheduling.",
+    "genuine_injection": true,
+    "genuine_injection_note": "A real optional /schedule proposal was dropped and never revisited while the thread moved to debugging.",
+    "verdict": "REAL",
+    "refutation": "Could not refute: proposal is specific (/schedule, 2 weeks, named dir + scripts), user dropped it for an orthogonal login bug, and work went to a clearly different axis. Only nit is the cosmetic '[图片 #1]' vs '[Image #1]' label, which does not affect grounding."
+  }
+]

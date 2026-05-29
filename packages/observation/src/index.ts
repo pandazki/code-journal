@@ -33,4 +33,5 @@ export * from './lib/digest-codex';
 export * from './lib/store';
 export * from './lib/state';
 export * from './lib/lens-runner';
+export * from './lib/grounding';
 export * from './lib/compose';

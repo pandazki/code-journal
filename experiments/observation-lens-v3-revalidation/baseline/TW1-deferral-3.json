@@ -1,0 +1,67 @@
+{
+  "lens_id": "anchored-deferral",
+  "session_id": "tripwire-0001",
+  "project_code": "TW1",
+  "events": [
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "tripwire-0001",
+      "project_code": "TW1",
+      "turn_anchor": "T2",
+      "timespan": "13:01-13:02",
+      "source_refs": [
+        {"type": "turn", "id": 2},
+        {"type": "turn", "id": 3}
+      ],
+      "payload": "**Anchor (AI salience event)**: ≥2-named-options\n\n**Anchor verbatim**: 配置加载有两条路:\n\n(a) 直接依赖 `js-yaml`,成熟、解析健壮;\n(b) 自己手写一个最小 yaml 子集 parser,零依赖但要自己维护边界。\n\n你想用 (a) 还是 (b)?\n\n**User response verbatim**: 用 (a),`js-yaml` 就行,别自己写 parser,容易出 bug 还得自己维护。\n\n**Stance**: engaged\n\n**Why this stance, not another**: User picked a concrete option and gave substantive reasoning for the choice rather than delegating or redirecting."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "tripwire-0001",
+      "project_code": "TW1",
+      "turn_anchor": "T6",
+      "timespan": "13:05-13:06",
+      "source_refs": [
+        {"type": "turn", "id": 6},
+        {"type": "turn", "id": 7}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: 配置查找路径我建议按 `./mycli.yaml` → `~/.mycli.yaml` 的顺序,先 local 后 home。这样可以吗?\n\n**User response verbatim**: 可以,继续。\n\n**Stance**: engaged\n\n**Why this stance, not another**: User explicitly confirmed the proposed approach rather than delegating or ignoring; \"可以\" is a concrete acceptance of the named option."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "tripwire-0001",
+      "project_code": "TW1",
+      "turn_anchor": "T10",
+      "timespan": "13:08-13:10",
+      "source_refs": [
+        {"type": "turn", "id": 10},
+        {"type": "turn", "id": 11}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: 接下来我可以给 loader 加 schema 校验,用 `zod` 定义 config 的 shape,非法配置直接报错退出,避免后面拿到脏数据。要加这个吗?\n\n**User response verbatim**: 算了,先别加校验。我现在更想要的是:配置能被环境变量覆盖,像 `MYCLI_PORT` 这种,运行时优先级最高。先做这个。\n\n**Stance**: overrode\n\n**Why this stance, not another**: User rejected the zod-validation framing entirely and redirected to a different feature (env-var override) without engaging with the AI's question."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "tripwire-0001",
+      "project_code": "TW1",
+      "turn_anchor": "T14",
+      "timespan": "13:14-13:15",
+      "source_refs": [
+        {"type": "turn", "id": 14},
+        {"type": "turn", "id": 15}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: 要不要我顺手把 README 的配置章节补一下,把查找顺序和环境变量覆盖都写清楚?\n\n**User response verbatim**: 好,很好。\n\n**Stance**: engaged\n\n**Why this stance, not another**: User gave affirmative confirmation of the AI's proposed action rather than delegating the decision or redirecting."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "tripwire-0001",
+      "project_code": "TW1",
+      "turn_anchor": "T22",
+      "timespan": "13:23-13:24",
+      "source_refs": [
+        {"type": "turn", "id": 22},
+        {"type": "turn", "id": 23}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: 要我加个测试覆盖这个失败路径吗?\n\n**User response verbatim**: 你决定就好。\n\n**Stance**: deferred\n\n**Why this stance, not another**: User explicitly handed the decision back to the agent (\"你决定就好\" = \"you decide\") without picking a direction."
+    }
+  ]
+}

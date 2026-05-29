@@ -1,0 +1,38 @@
+[
+  {
+    "turn_anchor": "T65",
+    "grounded": false,
+    "anchor_real": true,
+    "stance_correct": "correct",
+    "genuine_injection": true,
+    "verdict": "WEAK",
+    "refutation": "The anchor's leading line ('三种选择，请定一下') and the user response (T66) match verbatim, and overrode is correct — the user ignored all three named proxy-fix options and redirected to switching to main. But the quoted option text is misquoted: the digest reads '我重跑 build' / '再重跑', while the event renders these as '我重跟build' / '再重跟' (跑 changed to 跟). Because the verbatim copy is corrupted, grounded fails the strict verbatim gate, dropping this from REAL to WEAK despite a real anchor and correct stance."
+  },
+  {
+    "turn_anchor": "T301",
+    "grounded": true,
+    "anchor_real": true,
+    "stance_correct": "correct",
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "The /schedule direct-ask (T301) and the user's response (T302, '是不是哪个表要先插入个数据？ 还是说要重启？') both match verbatim, and the user plainly ignored the scheduling question while reporting a login problem via [Image #1]. Strongest case against: the redirected_to phrase asserts the screenshot shows a 'login failure' — the digest only shows '[Image #1]' with no described content, so that specific characterization is inferred rather than source-visible; but the ignored stance itself holds since the scheduling question went entirely unaddressed."
+  },
+  {
+    "turn_anchor": "T327",
+    "grounded": true,
+    "anchor_real": true,
+    "stance_correct": "correct",
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "The direct-ask ('要我把 default 也加到排序里让 Samantha 第一个返回吗？', T327) and the user response ('有报错。你帮我看看日志？', T328) both appear verbatim, and the user clearly bypassed the yes/no sort-order question to report a new error and request log inspection — a clean ignored. Hard to refute; the only quibble is that the anchor lives inside a blockquote (>) as a soft offer rather than a foregrounded question, but it is still an explicit yes/no decision request."
+  },
+  {
+    "turn_anchor": "T356",
+    "grounded": true,
+    "anchor_real": true,
+    "stance_correct": "defensible-but-borderline",
+    "genuine_injection": true,
+    "verdict": "REAL",
+    "refutation": "Anchor ('要不要我顺手把所有不属于当前 fake-ez-260429 的 agent 都设成 stopped...？或者保持现状先用着？', T356) and response ('好啊。。', T357) match verbatim. The user's '好啊' is an affirmative greenlight, so engaged is defensible — but it is a thin, vague assent ('okay..') that arguably leans toward deferral/passive agreement rather than substantive engagement, and the payload's claim that it 'selected the first of the two offered options' over-specifies a one-word answer. Engaged still fits best of the four since the user did affirmatively direct the AI to proceed."
+  }
+]

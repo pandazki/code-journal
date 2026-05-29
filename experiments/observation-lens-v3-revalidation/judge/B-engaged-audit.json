@@ -1,0 +1,16 @@
+[
+  {
+    "turn_anchor": "T44",
+    "runs_engaged": 3,
+    "user_quote": "那你加上去吧 。。用法就是 用户一旦选择了某个目录，而这个目录有对应的 cowork session 就自动被扫描进来",
+    "class": "SUBSTANTIVE",
+    "why": "Anchor (T44) was a direct-ask offering two options: start now vs. first review the full §3 wording. The user picked the concrete 'go ahead and add it' option AND supplied a substantive usage specification — that the scan should trigger automatically once a user-selected directory has a matching Cowork session. This is a concrete choice plus an added requirement that shaped the implementation (the userSelectedFolders ∩ cwds[] auto-scan semantics), not a bare yes."
+  },
+  {
+    "turn_anchor": "T152",
+    "runs_engaged": 3,
+    "user_quote": "连 sessions.ts 一起补完再推",
+    "class": "PICK-ONLY",
+    "why": "Anchor (T152) was an AskUserQuestion with two explicitly named options (push synthesizer now + defer sessions.ts, OR complete sessions.ts before pushing). The user selected option 2 by its exact label via the AskUserQuestion picker (T153), but gave no reason, argument, critique, or added qualification — a bare selection among the named options."
+  }
+]
