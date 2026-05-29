@@ -2,7 +2,7 @@
 
 > Scans a coding-agent transcript for **AI salience events** — moments
 > where the AI explicitly exposes a decision point — and classifies the
-> user's response into one of four stances: engaged / deferred / overrode
+> user's response into one of five stances: engaged / assented / deferred / overrode
 > / ignored. Denser than negative-space; Phase 1 ledger produced 12-17
 > events per session.
 
@@ -29,18 +29,37 @@ The AI must do at least ONE of:
 Implicit decision points (AI just doing things) do NOT count. The anchor
 must be **explicit** in the AI's text.
 
-## The four stances (the user's immediate response, 1-3 turns)
+## The five stances (the user's immediate response, 1-3 turns)
 
-- **engaged** — picked a concrete option, argued substantively for one,
-  gave constructive critique of the framing, or added a third option
-- **deferred** — handed it back to the agent ("you decide", "看你",
-  "anything is fine", "your call", "whatever you think")
+The distinction that matters: did the user **inject direction** (engaged /
+overrode / ignored) or **decline to** (assented / deferred)? Bare approval is
+NOT engagement — keep them apart.
+
+- **engaged** — the user **substantively shaped** the decision: added a reason
+  or constraint, argued for an option on the merits, critiqued the framing, or
+  introduced a third option. There must be **new content from the user**, not
+  just a selection.
+  - ✅ "用 (a),因为 (b) 会 break 现有的 cache" (picked + reason)
+  - ✅ "都不对,应该按 X 来,因为 Y" (reframed with substance)
+- **assented** — the user **approved the AI's specific proposal without adding
+  direction**: a bare yes / go-ahead / encouragement. The AI is driving; the
+  user ratifies. This is NOT engagement.
+  - ✅ "可以,继续", "很好", "加吧", "go on", "听起来不错", "嗯就这样"
+  - A bare "yes" to a single yes/no proposal is `assented`, not `engaged`.
+- **deferred** — handed the choice back to the agent ("you decide", "看你",
+  "你决定就好", "anything is fine", "your call", "whatever you think"). Unlike
+  `assented` (ratifies a specific proposal), `deferred` leaves the choice open.
 - **overrode** — rejected the framing entirely and redirected to a
   different concern ("forget that, let's...", "actually I want to...")
 - **ignored** — changed topic without acknowledging the anchor; the
   question hangs unaddressed while work proceeds elsewhere
 
-If the user response doesn't cleanly fit one of these four, **skip the
+The line between `engaged` and `assented` is the whole point: if the user added
+**no reasoning, no constraint, no new option** — only approval — it is
+`assented`. When genuinely torn between `engaged` and `assented`, choose
+`assented` (the conservative call: do not inflate engagement).
+
+If the user response doesn't cleanly fit one of these five, **skip the
 event** rather than forcing a fit.
 
 ### Special rule for `ignored` stance
@@ -64,7 +83,7 @@ those the user's stance toward the anchor IS the observation.
 
 - ❌ Claim the user "is" any stance type ("the user is an engager")
 - ❌ Aggregate across events ("the user mostly defers")
-- ❌ Evaluate good / bad — all four stances are neutral observations
+- ❌ Evaluate good / bad — all five stances are neutral observations
 - ❌ Infer stance from later turns when the immediate response is clear
 - ❌ Invent anchors — if the AI never explicitly exposes a decision
   point, the event count for this transcript is 0
@@ -96,7 +115,7 @@ Strict JSON. Schema:
       "source_refs": [
         {"type": "turn", "id": 42}
       ],
-      "payload": "**Anchor (AI salience event)**: direct-ask | ≥2-named-options | explicit-uncertainty\n\n**Anchor verbatim**: ...\n\n**User response verbatim**: ...\n\n**Stance**: engaged | deferred | overrode | ignored\n\n**Redirected to**: <only present when Stance = ignored; one short sentence>\n\n**Why this stance, not another**: ..."
+      "payload": "**Anchor (AI salience event)**: direct-ask | ≥2-named-options | explicit-uncertainty\n\n**Anchor verbatim**: ...\n\n**User response verbatim**: ...\n\n**Stance**: engaged | assented | deferred | overrode | ignored\n\n**Redirected to**: <only present when Stance = ignored; one short sentence>\n\n**Why this stance, not another**: ..."
     }
   ],
   "empty_state_reason": "<only if events is empty; one sentence>"

@@ -228,7 +228,7 @@ function renderAudit(
     `- **Lens 1 — strict-negative-space** (\`${state.config.lens_versions['strict-negative-space']}\`): macro pivots where AI made a specific proposal, user did not take it, subsequent work followed a different axis.`,
   );
   out.push(
-    `- **Lens 2 — anchored-deferral** (\`${state.config.lens_versions['anchored-deferral']}\`): AI salience events (direct-ask / ≥2-named-options / explicit-uncertainty) and user stance (engaged / deferred / overrode / ignored). For \`ignored\` stance, also captures the concrete new direction.`,
+    `- **Lens 2 — anchored-deferral** (\`${state.config.lens_versions['anchored-deferral']}\`): AI salience events (direct-ask / ≥2-named-options / explicit-uncertainty) and user stance (engaged / assented / deferred / overrode / ignored — assented = bare approval, kept distinct from engaged). For \`ignored\` stance, also captures the concrete new direction.`,
   );
   out.push('');
   out.push(`Trigger: cron at ${episode.trigger.cron_at.slice(0, 19)}; new events since last compose = ${episode.trigger.new_events_since_last} (threshold ${episode.trigger.threshold}).`);
@@ -237,7 +237,7 @@ function renderAudit(
   out.push('valence — the same event can read as "user pulled work off AI\'s proposed axis" *or*');
   out.push('"user pulled work onto a more pressing concern" — which reading applies depends on');
   out.push('context the lens cannot see and the reader can. The audit does not pick. Stance');
-  out.push('labels (engaged / deferred / overrode / ignored) are observation labels, not quality');
+  out.push('labels (engaged / assented / deferred / overrode / ignored) are observation labels, not quality');
   out.push('grades — no stance is "better".');
   out.push('');
 
@@ -294,16 +294,24 @@ function renderAudit(
   const stances = countStances(deferral);
   out.push("## Stance distribution (the user's response side)");
   out.push('');
-  out.push('Counts, not rates. Reported as a 4-tuple to preserve shape.');
+  out.push('Counts, not rates. Reported as a 5-tuple to preserve shape.');
   out.push('');
-  out.push('| Stance     | Count |');
-  out.push('| ---------- | ----- |');
-  out.push(`| engaged    | ${stances.engaged} |`);
-  out.push(`| deferred   | ${stances.deferred} |`);
-  out.push(`| overrode   | ${stances.overrode} |`);
-  out.push(`| ignored    | ${stances.ignored} |`);
+  out.push('Direction was **injected** in engaged / overrode / ignored, and **declined** in');
+  out.push('assented / deferred — `assented` (bare approval of the AI\'s proposal) is kept');
+  out.push('separate from `engaged` (the user substantively shaped the decision) so approval');
+  out.push("does not read as engagement.");
   out.push('');
-  out.push(`**Shape**: (e=${stances.engaged}, d=${stances.deferred}, o=${stances.overrode}, i=${stances.ignored}).`);
+  out.push('| Stance     | Count | direction |');
+  out.push('| ---------- | ----- | --------- |');
+  out.push(`| engaged    | ${stances.engaged} | injected |`);
+  out.push(`| overrode   | ${stances.overrode} | injected |`);
+  out.push(`| ignored    | ${stances.ignored} | injected (elsewhere) |`);
+  out.push(`| assented   | ${stances.assented} | declined |`);
+  out.push(`| deferred   | ${stances.deferred} | declined |`);
+  out.push('');
+  out.push(
+    `**Shape**: (e=${stances.engaged}, a=${stances.assented}, d=${stances.deferred}, o=${stances.overrode}, i=${stances.ignored}).`,
+  );
   out.push('');
 
   // ── Findings — strict ────────────────────────────────────────────────────
@@ -542,13 +550,14 @@ function countAnchorTypes(deferral: ObservationEvent[]): {
 
 function countStances(deferral: ObservationEvent[]): {
   engaged: number;
+  assented: number;
   deferred: number;
   overrode: number;
   ignored: number;
 } {
-  const out = { engaged: 0, deferred: 0, overrode: 0, ignored: 0 };
+  const out = { engaged: 0, assented: 0, deferred: 0, overrode: 0, ignored: 0 };
   for (const ev of deferral) {
-    const m = /\*\*Stance\*\*:\s*(engaged|deferred|overrode|ignored)/.exec(ev.payload);
+    const m = /\*\*Stance\*\*:\s*(engaged|assented|deferred|overrode|ignored)/.exec(ev.payload);
     if (!m) continue;
     out[m[1] as keyof typeof out] += 1;
   }

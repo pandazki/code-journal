@@ -622,7 +622,7 @@ function parseProjectStateConfig(d: JsonObject): ProjectStateConfig {
     compose_threshold: Number(d.compose_threshold ?? 10),
     lens_versions: {
       'strict-negative-space': String(lvRaw['strict-negative-space'] ?? 'v2.1'),
-      'anchored-deferral': String(lvRaw['anchored-deferral'] ?? 'v2.1'),
+      'anchored-deferral': String(lvRaw['anchored-deferral'] ?? 'v3.0'),
     },
     model,
     _extra: extra,
@@ -658,7 +658,7 @@ export function newProjectState(projectId: string, displayName: string): Project
       compose_threshold: 10,
       lens_versions: {
         'strict-negative-space': 'v2.1',
-        'anchored-deferral': 'v2.1',
+        'anchored-deferral': 'v3.0',
       },
       model: 'sonnet',
       _extra: {},
