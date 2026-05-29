@@ -95,6 +95,15 @@ export function extractVerbatims(event: LensEventLike): Verbatims {
       response: grab(/Event \(user response[^)]*\)\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
     };
   }
+  if (event.lens_id === 'user-initiated-pivot') {
+    // The integrity-critical claim is the user's direction (turn_anchor points
+    // at it). "proposal" here = that user-direction verbatim; "response" = the
+    // preceding AI turn (soft, used only for response_found reporting).
+    return {
+      proposal: grab(/Event \(user direction[^)]*\)\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
+      response: grab(/Event \(preceding AI turn[^)]*\)\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
+    };
+  }
   // anchored-deferral
   return {
     proposal: grab(/Anchor verbatim\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),

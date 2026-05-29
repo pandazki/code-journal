@@ -17,12 +17,18 @@ export type JsonObject = { [k: string]: Json };
 // Lens identifiers
 // -----------------------------------------------------------------------------
 
-export type LensId = 'strict-negative-space' | 'anchored-deferral';
+export type LensId = 'strict-negative-space' | 'anchored-deferral' | 'user-initiated-pivot';
 
-export const LENS_IDS: readonly LensId[] = ['strict-negative-space', 'anchored-deferral'] as const;
+export const LENS_IDS: readonly LensId[] = [
+  'strict-negative-space',
+  'anchored-deferral',
+  'user-initiated-pivot',
+] as const;
 
 export function isLensId(v: unknown): v is LensId {
-  return v === 'strict-negative-space' || v === 'anchored-deferral';
+  return (
+    v === 'strict-negative-space' || v === 'anchored-deferral' || v === 'user-initiated-pivot'
+  );
 }
 
 export type AgentId = 'claude-code' | 'codex' | 'cowork';
@@ -623,6 +629,7 @@ function parseProjectStateConfig(d: JsonObject): ProjectStateConfig {
     lens_versions: {
       'strict-negative-space': String(lvRaw['strict-negative-space'] ?? 'v2.1'),
       'anchored-deferral': String(lvRaw['anchored-deferral'] ?? 'v3.0'),
+      'user-initiated-pivot': String(lvRaw['user-initiated-pivot'] ?? 'v1.0'),
     },
     model,
     _extra: extra,
@@ -635,6 +642,7 @@ function serializeProjectStateConfig(c: ProjectStateConfig): JsonObject {
     lens_versions: {
       'strict-negative-space': c.lens_versions['strict-negative-space'],
       'anchored-deferral': c.lens_versions['anchored-deferral'],
+      'user-initiated-pivot': c.lens_versions['user-initiated-pivot'],
     },
     model: c.model,
   };
@@ -659,6 +667,7 @@ export function newProjectState(projectId: string, displayName: string): Project
       lens_versions: {
         'strict-negative-space': 'v2.1',
         'anchored-deferral': 'v3.0',
+        'user-initiated-pivot': 'v1.0',
       },
       model: 'sonnet',
       _extra: {},

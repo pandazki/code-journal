@@ -69,14 +69,15 @@ export function composeAudit(args: ComposeArgs): ComposeResult {
   const { state } = args;
   const strict = readSignals(state.project_id, 'strict-negative-space');
   const deferral = readSignals(state.project_id, 'anchored-deferral');
+  const pivot = readSignals(state.project_id, 'user-initiated-pivot');
 
-  if (strict.length === 0 && deferral.length === 0) {
+  if (strict.length === 0 && deferral.length === 0 && pivot.length === 0) {
     return { ok: false, reason: 'no events in signal store; sync first' };
   }
 
   // Build turn maps per session from cached digests, for M2 (latency) and M6 (position).
   const sessionTurnMaps = new Map<string, TurnMap>();
-  for (const sid of unique([...strict, ...deferral].map((e) => e.session_id))) {
+  for (const sid of unique([...strict, ...deferral, ...pivot].map((e) => e.session_id))) {
     const digestPath = digestFilePath(state.project_id, sid);
     if (existsSync(digestPath)) {
       sessionTurnMaps.set(sid, parseTurnMapFromDigest(readFileSync(digestPath, 'utf8')));
@@ -112,6 +113,12 @@ export function composeAudit(args: ComposeArgs): ComposeResult {
       event_ids: deferral.map((e) => e.id),
       _extra: {},
     },
+    {
+      lens_id: 'user-initiated-pivot',
+      lens_version: state.config.lens_versions['user-initiated-pivot'],
+      event_ids: pivot.map((e) => e.id),
+      _extra: {},
+    },
   ];
 
   const episode: AuditEpisode = {
@@ -132,7 +139,7 @@ export function composeAudit(args: ComposeArgs): ComposeResult {
     _extra: {},
   };
 
-  const markdown = renderAudit(episode, strict, deferral, sessionTurnMaps, state);
+  const markdown = renderAudit(episode, strict, deferral, pivot, sessionTurnMaps, state);
 
   // Hard rule check before write
   const lower = markdown.toLowerCase();
@@ -187,6 +194,7 @@ function renderAudit(
   episode: AuditEpisode,
   strict: ObservationEvent[],
   deferral: ObservationEvent[],
+  pivot: ObservationEvent[],
   turnMaps: Map<string, TurnMap>,
   state: ProjectState,
 ): string {
@@ -229,6 +237,7 @@ function renderAudit(
   );
   out.push(
     `- **Lens 2 — anchored-deferral** (\`${state.config.lens_versions['anchored-deferral']}\`): AI salience events (direct-ask / ≥2-named-options / explicit-uncertainty) and user stance (engaged / assented / deferred / overrode / ignored — assented = bare approval, kept distinct from engaged). For \`ignored\` stance, also captures the concrete new direction.`,
+    `- **Lens 3 — user-initiated-pivot** (\`${state.config.lens_versions['user-initiated-pivot']}\`): direction the user injected when the AI exposed **no** decision point — an unprompted new concern / file / requirement that subsequent work took up. Covers the collaboration mode the other two lenses structurally cannot see.`,
   );
   out.push('');
   out.push(`Trigger: cron at ${episode.trigger.cron_at.slice(0, 19)}; new events since last compose = ${episode.trigger.new_events_since_last} (threshold ${episode.trigger.threshold}).`);
@@ -371,6 +380,45 @@ function renderAudit(
     }
   }
 
+  // ── Findings — user-initiated pivot ──────────────────────────────────────
+  out.push('## Findings — User-initiated pivot');
+  out.push('');
+  out.push('Direction the user injected where the AI exposed no decision point.');
+  out.push('');
+  // Leg-1 cross-lens guard: a pivot event whose turn coincides with a deferral
+  // anchor is invalid — a deferral anchor IS an AI fork, so by definition the
+  // user was not pivoting off "no decision point". Suppress it mechanically
+  // rather than trusting the lens's self-check (same spirit as the grounding gate).
+  const deferralAnchorTurns = new Set(deferral.map((d) => d.primary_turn));
+  const pivotShown = pivot.filter((ev) => !deferralAnchorTurns.has(ev.primary_turn));
+  const pivotSuppressed = pivot.length - pivotShown.length;
+  if (pivotShown.length === 0) {
+    out.push('**EMPTY-STATE**: no user-initiated-pivot events surfaced in this episode.');
+    if (pivotSuppressed > 0) {
+      out.push('');
+      out.push(`(${pivotSuppressed} candidate${pivotSuppressed === 1 ? '' : 's'} suppressed as coinciding with a deferral anchor — an AI fork existed there, so the moment is owned by anchored-deferral.)`);
+    }
+    out.push('');
+  } else {
+    out.push(`${pivotShown.length} event${pivotShown.length === 1 ? '' : 's'} found.`);
+    if (pivotSuppressed > 0) {
+      out.push(`(${pivotSuppressed} candidate${pivotSuppressed === 1 ? '' : 's'} suppressed as coinciding with a deferral anchor.)`);
+    }
+    out.push('');
+    for (let i = 0; i < pivotShown.length; i++) {
+      const ev = pivotShown[i];
+      if (!ev) continue;
+      out.push(`### Pivot event ${i + 1} · turns ${ev.turn_anchor}`);
+      out.push('');
+      out.push(ev.payload);
+      out.push('');
+      out.push(`*Source refs*: ${formatSourceRefs(ev.source_refs)}`);
+      out.push('');
+      out.push('---');
+      out.push('');
+    }
+  }
+
   // ── Fate updates ─────────────────────────────────────────────────────────
   out.push('---');
   out.push('');
@@ -401,7 +449,7 @@ function renderAudit(
   out.push('');
   out.push('- **Recall is not validated.** Lens precision verified by participant review; how many events the lens *missed* is structurally unverifiable from precision-only checks (§ 14.1).');
   out.push('- **Run-to-run variance is real.** Stance counts can vary ±30% across re-scans of the same digest (Phase 2 E1, especially in the `overrode` and `engaged` categories). Treat single-run numbers as one sample, not ground truth.');
-  out.push('- **Lens coverage is bounded.** Only two lenses run; phenomena outside their definitions are invisible.');
+  out.push('- **Lens coverage is bounded.** Three lenses run (strict-negative-space, anchored-deferral, user-initiated-pivot); phenomena outside their definitions are invisible.');
   out.push('- **Fate-tracking is manual in MVP-II.** This audit does not auto-detect fate evolution of prior events; that requires topic-coherent arc detection (planned for MVP-III).');
   out.push('');
 
