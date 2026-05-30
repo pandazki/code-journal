@@ -13,6 +13,7 @@ plugin) distills them into work-log entries and daily reports.
 |------|------------|
 | `packages/tui` | **`cj`** — a terminal board to discover, browse, and upload coding-agent sessions |
 | `packages/core` | session discovery + transcript parsing, shared by the rest |
+| `packages/observation` | **observation lens** — surfaces where *you* (not the agent) injected direction |
 | `packages/cli` | the work-log / report CLI that the Claude Code plugin drives |
 | `claude-plugin/` | Claude Code plugin — drafts work-log entries and daily reports |
 | `server/` | reference server — receives reports and uploaded sessions, serves a browse UI |

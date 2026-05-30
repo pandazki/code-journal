@@ -80,13 +80,16 @@ transcript-viewer SPA in `server/public/`.
 
 A separate product line growing alongside the journal: take the same raw
 sessions and run them through observation lenses that surface where the
-user (not the agent) injected direction. The framework + experiments
-that ground this live in `experiments/observation-lens-v1/` (Phase 1
-cross-project validation) and `experiments/observation-lens-v2/` (Phase 2
-seven-experiment battery). The engineering plan for productionising it
-is at [`docs/plans/mvp-ii.md`](plans/mvp-ii.md).
+user (not the agent) injected direction. **Shipping as of v0.2.0** — the
+canonical, code-matching documentation is
+[`docs/observation-lens.md`](observation-lens.md) (中文:
+[`observation-lens.zh.md`](observation-lens.zh.md)). The exploratory record
+(phases, hypotheses, re-validation) lives under `experiments/observation-lens-*/`
+and `docs/plans/` and is superseded by that guide for day-to-day use.
 
 - [x] Phase 1 · cross-project comparison (3 projects × 2 lenses, isolated subagents) — `experiments/observation-lens-v1/report.md`
 - [x] Phase 2 · seven-experiment battery (lens variance, empty-state, measurement utility, cross-agent, fate proxy, predictability proxy, third-party reader proxy) — `experiments/observation-lens-v2/report.md`
-- [ ] MVP-II · production engineering of three-layer architecture (Detection / Signal Store / Audit) — see `docs/plans/mvp-ii.md`
-- [ ] MVP-III · topic-coherent arc detection · § 9 predictability dashboard · real human reader tests
+- [x] MVP-II · production three-layer architecture (Detection / Signal Store / Audit) — `sync` / `compose` / `status`
+- [x] v3 re-validation — adversarial grounding gate, `assented` stance (de-contaminate `engaged`), third lens `user-initiated-pivot`, generalization on unseen projects — `experiments/observation-lens-v3-revalidation/`
+- [ ] MVP-III — **not yet built/validated:** fate tracking (manual today; auto-detection + `fate add` CLI), large-session chunked digest, cross-machine sync, real-human reader tests, § 9 predictability dashboard
+- [ ] Tune `user-initiated-pivot` soft edges (session openers, question-form concern-surfacing) — currently experimental

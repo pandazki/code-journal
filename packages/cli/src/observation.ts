@@ -338,6 +338,7 @@ export async function cmdObservationStatus(rest: string[], _ctx: ObsCliContext):
     const state = readProjectState(projectId, group.project.displayName);
     const strictCount = readSignals(projectId, 'strict-negative-space').length;
     const deferralCount = readSignals(projectId, 'anchored-deferral').length;
+    const pivotCount = readSignals(projectId, 'user-initiated-pivot').length;
 
     process.stdout.write(`\nProject ${group.project.displayName} (pid=${projectId})\n`);
     process.stdout.write(`  agents seen: ${state.agent_seen.join(', ') || '(none yet)'}\n`);
@@ -347,7 +348,8 @@ export async function cmdObservationStatus(rest: string[], _ctx: ObsCliContext):
         '\n',
     );
     process.stdout.write(
-      `  signal store: ${strictCount + deferralCount} events (strict: ${strictCount}, deferral: ${deferralCount})\n`,
+      `  signal store: ${strictCount + deferralCount + pivotCount} events ` +
+        `(strict: ${strictCount}, deferral: ${deferralCount}, pivot: ${pivotCount})\n`,
     );
     if (state.episodes.length === 0) {
       process.stdout.write(`  episodes: none yet\n`);
@@ -373,7 +375,7 @@ export async function cmdObservationStatus(rest: string[], _ctx: ObsCliContext):
     }
     if (verbose) {
       process.stdout.write(
-        `  lens versions: strict-negative-space=${state.config.lens_versions['strict-negative-space']}, anchored-deferral=${state.config.lens_versions['anchored-deferral']}, model=${state.config.model}\n`,
+        `  lens versions: strict-negative-space=${state.config.lens_versions['strict-negative-space']}, anchored-deferral=${state.config.lens_versions['anchored-deferral']}, user-initiated-pivot=${state.config.lens_versions['user-initiated-pivot']}, model=${state.config.model}\n`,
       );
     }
   }
