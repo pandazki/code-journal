@@ -1,5 +1,11 @@
 # MVP-II 工程规划 · Observation Lens Phase 2
 
+> ⚠️ **Superseded / historical.** This is the original engineering *plan*, not the
+> current state. For how the shipped feature actually works, see the canonical
+> guide [`docs/observation-lens.md`](../observation-lens.md). Out of date here:
+> this plan describes **two** lenses and **four** stances; the shipped feature has
+> **three** lenses, **five** stances, and a grounding gate.
+
 > 这份规划把 Phase 1(grilling Q1-Q9)+ Phase 2(E1-E7 实验)的所有结论
 > 收拢成**一份可执行的工程文档**。读者:未来要实现 MVP-II 的工程师 / 自己 /
 > 下一个 agent。读完应该不需要再去翻 grilling 记录或实验报告就能上手。
