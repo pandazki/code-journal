@@ -318,6 +318,49 @@ tripwire GT-C (preceding AI turn = "我接着把 CHANGELOG 更新一下", no for
 passes. +2 tests, suite 64→66 green. The compose-time cross-lens guard remains as
 belt-and-suspenders.
 
+## Generalization test — 3 new, unseen projects
+
+To check the fixes aren't overfit to the original corpus (tanka/omne/pneuma-skills
++ synthetics), the full pipeline (fixed digest → 3 lenses → grounding gate incl.
+leg-1) was run on 3 projects never used in development: **advanced-agentic-dev-
+patterns (G)**, **pneuma-craft (H)**, **shortcraft-dogfeed (I)**. Lenses via
+isolated subagents; every grounding drop inspected against its exact cited turn.
+
+**What generalizes cleanly:**
+
+- **Digest fixes** — thinking / task-notif / continue = 0 on all 3.
+- **`assented` decontamination** — stance shape is **engaged=0 on all three**
+  (G: a2/o1, H: a7, I: a2/o1/i2). Users approved or redirected but rarely
+  *substantively shaped* an AI-framed decision; pre-fix each of those approvals
+  would have been mislabeled `engaged`. Independent confirmation, and it further
+  undercuts the old "engaged-balanced shape" readings.
+- **Deferral is the reliable lens** (kept 3/3, 8/9, 5/5 after the fix below);
+  strict is lowest-yield/precision (I: 1 of 3 ungrounded).
+
+**The honest part — the test caught a real bug in my own gate.** I first claimed
+all 4 grounding drops were "genuine fabrications, 0 false kills." Inspecting each
+verbatim against its cited turn showed otherwise:
+
+| drop | actual classification |
+|----|----|
+| I-strict T86-T93 | **TRUE fabrication** — proposal invented, real user turn attached. Correct drop. |
+| H-deferral T78-T79 | **paraphrased anchor** — real assent moment, but the lens summarized the AI turn instead of quoting it. Defensible drop (verbatim gate), but a real moment → recall cost. |
+| H-deferral T479-T480 | **digest truncation** — the AI's "两条路：…" was cut by the tool_result cap, so the verbatim genuinely isn't in what the lens saw. Pipeline limitation, not a fabrication. |
+| H-pivot T638 | **FALSE KILL** — the patch-list verbatim *is* at T638, but the AI repeated it earlier and first-match citation locked onto the earlier copy. |
+
+**Fix:** `locateAllSnippets()` + nearest-occurrence selection in
+`checkEventGrounding` — citation now accepts the occurrence closest to the cited
+anchor. Verified after fix: T638 → **KEPT**; the genuine fabrication (I-T86), the
+original B-strict T85/T127 case, and the truncated/paraphrased drops all still
+**DROP**. +1 regression test (`grounding.test.ts`), full observation suite **67
+pass / 0 fail**, typecheck clean, dist + plugin bin rebuilt.
+
+**Verdict on contingency:** mixed, and that's the honest outcome. The digest
+fixes and `assented` generalize; the grounding gate was over-claimed on first
+read, and unseen data exposed a multi-occurrence false-kill that is now fixed and
+regression-tested. The 4 drops break down as 1 correct catch, 1 recovered false
+kill, 1 paraphrase (defensible), 1 digest-truncation — not "4 clean fabrications."
+
 ## Caveats
 
 - 3 real projects, 1 author, single-agent transcripts; n=2-11 events each.
