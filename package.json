@@ -1,6 +1,6 @@
 {
   "name": "code-journal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Collect your AI coding-agent sessions and turn them into work reports.",
   "license": "MIT",
@@ -14,7 +14,7 @@
     "server"
   ],
   "scripts": {
-    "build": "npm run build -w @code-journal/core && npm run build -w @code-journal/cli && npm run sync-plugin-bin",
+    "build": "npm run build -w @code-journal/core && npm run build -w @code-journal/cli && npm run build -w @code-journal/app && npm run sync-plugin-bin",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run build -w @code-journal/core && npm run typecheck --workspaces --if-present",
     "sync-plugin-bin": "node scripts/sync-plugin-bin.js",

@@ -1,5 +1,10 @@
 # Handoff — Observation Lens · 接手就开干
 
+> ⚠️ **Historical handoff (pre-v0.2.0).** The feature has since shipped. Start
+> from the canonical guide [`docs/observation-lens.md`](observation-lens.md)
+> instead; the "next steps" below are partly done (grounding gate, `assented`,
+> third lens all landed). Latest record: `experiments/observation-lens-v3-revalidation/`.
+
 > 2026-05-29 · 接手的人 / agent 读这一份,5 分钟内就能知道从哪开始。
 
 ## 现在在哪 · State

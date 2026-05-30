@@ -1,6 +1,13 @@
 # 协作观测 Lens · 完整记录
 # Observation Lens · Complete Record
 
+> ℹ️ **Exploratory record (historical).** This is the honest research log up to
+> MVP-II. The feature has since shipped (v0.2.0) with changes this record
+> predates (three lenses, five stances, grounding gate). For the current,
+> code-matching documentation see [`docs/observation-lens.md`](observation-lens.md)
+> (中文: [`observation-lens.zh.md`](observation-lens.zh.md)). The fullest
+> re-validation record is `experiments/observation-lens-v3-revalidation/reports/`.
+
 > 一份把 **缘起 → Phase 1 → Phase 2 → MVP-II → smoke test** 串成一条线
 > 的诚实记录。每条结论都标了置信度。读完应该清楚:**哪些是真的站住
 > 了,哪些是单次实验觉得对但没复制过,哪些根本没碰过**。
