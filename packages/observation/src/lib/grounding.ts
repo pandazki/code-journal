@@ -12,6 +12,7 @@
  *   2. the user-response verbatim actually appears
  *   3. the proposal's real location matches the cited turn_anchor (±tolerance)
  *   4. (negative-space) the proposal precedes the response (chronology)
+ *   5. (user-initiated-pivot) no AI fork preceded the user's direction (leg 1)
  *
  * Any failure → not grounded. Callers drop or flag ungrounded events.
  */
@@ -20,6 +21,9 @@ export interface TurnText {
   id: number;
   /** searchable text for this turn (text / tool_result body / tool_use input) */
   text: string;
+  /** role/kind enable the pivot leg-1 check (preceding AI turn was not a fork) */
+  role?: 'user' | 'assistant';
+  kind?: string;
 }
 
 export interface GroundingCheck {
@@ -145,6 +149,25 @@ export function checkEventGrounding(event: LensEventLike, turns: TurnText[]): Gr
   }
   checks.push({ name: 'citation_accurate', pass: citationPass, fatal: true, detail: citationDetail });
 
+  // leg-1 (user-initiated-pivot only): no AI fork may precede the user's
+  // direction — a fork means the moment belongs to anchored-deferral. Checked
+  // mechanically against the transcript, independent of the deferral run.
+  if (event.lens_id === 'user-initiated-pivot') {
+    const userTurn = propTurn >= 0 ? propTurn : range ? range[0] : -1;
+    const fork = userTurn >= 0 ? precedingAiHasFork(userTurn, turns) : null;
+    checks.push({
+      name: 'no_preceding_fork',
+      pass: fork !== true, // fail only when a fork is positively detected
+      fatal: fork !== null, // undetermined (no role info) → don't gate
+      detail:
+        fork === true
+          ? 'preceding AI turn exposed a decision point (belongs to anchored-deferral)'
+          : fork === null
+            ? 'skipped (no role info in turns)'
+            : 'no preceding AI fork',
+    });
+  }
+
   // chronology (negative-space only): proposal must precede the response. Fatal
   // when both turns are located.
   if (event.lens_id === 'strict-negative-space') {
@@ -162,7 +185,57 @@ export function checkEventGrounding(event: LensEventLike, turns: TurnText[]): Gr
 
 /** Build the searchable turn list from a DigestResult.turns array. */
 export function turnsFromDigest(
-  digestTurns: { id: number; text?: string; toolInput?: string }[],
+  digestTurns: { id: number; text?: string; toolInput?: string; role?: 'user' | 'assistant'; kind?: string }[],
 ): TurnText[] {
-  return digestTurns.map((t) => ({ id: t.id, text: t.text ?? t.toolInput ?? '' }));
+  return digestTurns.map((t) => ({
+    id: t.id,
+    text: t.text ?? t.toolInput ?? '',
+    role: t.role,
+    kind: t.kind,
+  }));
+}
+
+/**
+ * Does the AI turn(s) since the user's previous message expose a decision point
+ * (a "fork": direct question / ≥2 named options / explicit uncertainty)?
+ *
+ * Mechanical leg-1 enforcement for user-initiated-pivot: a real pivot requires
+ * NO AI fork in front of it. This is independent of the deferral run (the
+ * earlier compose-only guard could miss a fork that deferral happened not to
+ * anchor). Returns null when role info is unavailable (can't determine → don't gate).
+ */
+export function precedingAiHasFork(userTurnId: number, turns: TurnText[]): boolean | null {
+  if (!turns.some((t) => t.role)) return null; // no role info — cannot determine
+  let prevUser = 0;
+  for (const t of turns) {
+    if (t.role === 'user' && (t.kind === undefined || t.kind === 'text') && t.id < userTurnId && t.id > prevUser) {
+      prevUser = t.id;
+    }
+  }
+  for (const t of turns) {
+    if (
+      t.role === 'assistant' &&
+      t.id > prevUser &&
+      t.id < userTurnId &&
+      (t.kind === undefined || t.kind === 'text' || t.kind === 'tool_use') &&
+      isForkText(t.text)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** High-precision markers that an AI turn asked the user to make a decision. */
+export function isForkText(text: string): boolean {
+  const t = text;
+  if (/还是[^。\n]{0,12}[?？]/.test(t)) return true; // "A 还是 B?"
+  if (/要不要|你想怎|你想要|你想用|你希望|你来定|你决定|你想先|你倾向|怎么选|你选(哪|什么)?/.test(t)) return true;
+  if (/(两|三|四|2|3|4)\s*个[^\n。]{0,10}(可选|选择|方案|方向|选项)/.test(t)) return true;
+  if (/\b(which (one|approach|option)|should we|do you (want|prefer)|would you (like|prefer)|your call|up to you)\b/i.test(t)) return true;
+  if (/不确定|not sure|either way|it depends|两可|看你的?|由你(来)?定/i.test(t)) return true;
+  if (/[（(][aA][)）][\s\S]{0,400}[（(][bB][)）]/.test(t)) return true; // (a) ... (b)
+  if (/(^|\n)\s*1[.、)][\s\S]{0,400}(^|\n)\s*2[.、)]/.test(t)) return true; // 1. ... 2.
+  if (/(^|\n)Q:\s/.test(t) && (t.match(/(^|\n)\s*-\s/g) || []).length >= 2) return true; // AskUserQuestion render
+  return false;
 }
