@@ -84,6 +84,44 @@ describe('grounding gate', () => {
     assert.equal(r.grounded, true, JSON.stringify(r.checks));
   });
 
+  it('user-initiated-pivot: REJECTS when an AI fork preceded the user direction (leg 1)', () => {
+    const withRoles: TurnText[] = [
+      { id: 1, role: 'user', kind: 'text', text: '帮我加个功能' },
+      { id: 2, role: 'assistant', kind: 'text', text: '我们用 A 还是 B?' }, // a fork
+      { id: 3, role: 'user', kind: 'text', text: '算了,先去把 auth.ts 的登录修了' },
+    ];
+    const ev = {
+      lens_id: 'user-initiated-pivot',
+      turn_anchor: 'T3',
+      payload:
+        '**Event (preceding AI turn — verbatim)**: 我们用 A 还是 B?\n' +
+        '**Event (user direction — verbatim)**: 算了,先去把 auth.ts 的登录修了\n' +
+        '**Event classification**: user-initiated-pivot',
+    };
+    const r = checkEventGrounding(ev, withRoles);
+    assert.equal(r.grounded, false);
+    assert.equal(r.checks.find((c) => c.name === 'no_preceding_fork')?.pass, false);
+  });
+
+  it('user-initiated-pivot: PASSES when the preceding AI turn was not a fork', () => {
+    const withRoles: TurnText[] = [
+      { id: 10, role: 'user', kind: 'text', text: '加个配置加载' },
+      { id: 11, role: 'assistant', kind: 'text', text: '配置加载做好了,我接着更新 CHANGELOG。' }, // no fork
+      { id: 12, role: 'user', kind: 'text', text: '等一下,先去 src/cli.ts 加个 try/catch' },
+    ];
+    const ev = {
+      lens_id: 'user-initiated-pivot',
+      turn_anchor: 'T12',
+      payload:
+        '**Event (preceding AI turn — verbatim)**: 配置加载做好了,我接着更新 CHANGELOG。\n' +
+        '**Event (user direction — verbatim)**: 等一下,先去 src/cli.ts 加个 try/catch\n' +
+        '**Event classification**: user-initiated-pivot',
+    };
+    const r = checkEventGrounding(ev, withRoles);
+    assert.equal(r.checks.find((c) => c.name === 'no_preceding_fork')?.pass, true);
+    assert.equal(r.grounded, true);
+  });
+
   it('locateSnippet finds the right turn', () => {
     assert.equal(locateSnippet('算了,先别加校验', turns), 33);
     assert.equal(locateSnippet('完全不存在的句子xyz', turns), -1);
