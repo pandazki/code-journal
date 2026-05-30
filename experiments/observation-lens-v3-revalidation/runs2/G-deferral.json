@@ -1,0 +1,43 @@
+{
+  "lens_id": "anchored-deferral",
+  "session_id": "ad412bf5",
+  "project_code": "G-aadp",
+  "events": [
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "ad412bf5",
+      "project_code": "G-aadp",
+      "turn_anchor": "T43-T44",
+      "timespan": "08:33-08:36",
+      "source_refs": [
+        {"type": "turn", "id": 43},
+        {"type": "turn", "id": 44}
+      ],
+      "payload": "**Anchor (AI salience event)**: ≥2-named-options + direct-ask\n\n**Anchor verbatim**: \"Q1 · Language scope. How should the LLM bundle be split by language?\n\n- A. One bundle per language — `/llms-mental-models-zh.txt` and `/llms-mental-models-en.txt`. User picks based on their target LLM/audience. Cleaner for ingestion (no cross-language confusion), each ~150K tokens.\n- B. Single bilingual bundle — both languages in one file with clear section markers. One link to share, but doubles size and may confuse the LLM if asked about a specific language.\n- C. Single bundle, one language only — pick zh OR en as the canonical version. Simplest, smallest, but loses the other audience.\n\nMy recommendation is A ... Which do you prefer?\"\n\n**User response verbatim**: \"我觉得可以。开干吧\"\n\n**Stance**: assented\n\n**Why this stance, not another**: The user ratified the AI's specific recommendation (option A) with bare approval and no added reasoning, constraint, or critique — no new content was introduced."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "ad412bf5",
+      "project_code": "G-aadp",
+      "turn_anchor": "T60-T61",
+      "timespan": "08:38-08:41",
+      "source_refs": [
+        {"type": "turn", "id": 60},
+        {"type": "turn", "id": 61}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: \"Open question (last one): do you also want this button on the **homepage** (`HomeMosaic` area), or just the mental-models hub for now? My recommendation: hub only, ship that, see if it gets used. Adding to home is a 5-minute follow-up.\n\nIf this looks right I'll write the spec to `docs/superpowers/specs/2026-04-30-llm-mental-models-bundle-design.md` and proceed.\"\n\n**User response verbatim**: \"这也需要用 spec 吗。。开干吧\"\n\n**Stance**: overrode\n\n**Why this stance, not another**: The user rejected the framing entirely — questioning the spec step aloud and redirecting to immediate implementation, bypassing both the placement question and the spec proposal without engaging on the merits of either."
+    },
+    {
+      "lens_id": "anchored-deferral",
+      "session_id": "ad412bf5",
+      "project_code": "G-aadp",
+      "turn_anchor": "T316-T317",
+      "timespan": "09:02-09:03",
+      "source_refs": [
+        {"type": "turn", "id": 316},
+        {"type": "turn", "id": 317}
+      ],
+      "payload": "**Anchor (AI salience event)**: direct-ask\n\n**Anchor verbatim**: \"附带说一下：`site/astro.config.mjs` 里 `site: 'https://nanxingw.github.io'` 这行也是个错的，影响 sitemap 等其他东西，不过那不在这次任务范围里。要我顺手改成 `https://panqiwei.github.io` 吗？\"\n\n**User response verbatim**: \"那你改掉吧\"\n\n**Stance**: assented\n\n**Why this stance, not another**: The user gave a bare yes to the AI's specific proposal with no added reasoning or constraint; the AI is driving, the user ratified."
+    }
+  ]
+}
