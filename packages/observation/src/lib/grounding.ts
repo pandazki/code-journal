@@ -98,9 +98,9 @@ interface Verbatims {
  * `\n**Stance**:` (bold text immediately followed by a colon). It must NOT stop
  * at inline bold inside the quote itself (e.g. a two-option block using
  * `**A.**` / `**B.**`), which the naive `\n**` terminator wrongly truncated
- * (pneuma-craft T479 false drop). Matches half- and full-width colons.
+ * (pneuma-craft T479 false drop). Matches half- and full-width colons. Encoded
+ * inline in each grab() pattern below as `(?=\n\*\*[^\n]+?\*\*\s*[:：]|$)`.
  */
-const FIELD_END = '(?=\\n\\*\\*[^\\n]+?\\*\\*\\s*[:：]|$)';
 
 /** Pull the proposal + response verbatim out of the lens payload, per lens. */
 export function extractVerbatims(event: LensEventLike): Verbatims {
