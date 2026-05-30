@@ -337,29 +337,40 @@ isolated subagents; every grounding drop inspected against its exact cited turn.
 - **Deferral is the reliable lens** (kept 3/3, 8/9, 5/5 after the fix below);
   strict is lowest-yield/precision (I: 1 of 3 ungrounded).
 
-**The honest part — the test caught a real bug in my own gate.** I first claimed
-all 4 grounding drops were "genuine fabrications, 0 false kills." Inspecting each
-verbatim against its cited turn showed otherwise:
+**The honest part — the test caught TWO real bugs in my own gate.** I first
+claimed all 4 grounding drops were "genuine fabrications, 0 false kills," then
+half-corrected to "1 truncation + 1 false-kill." Both were wrong. Verifying each
+verbatim against its exact cited turn, the real breakdown is **1 fabrication, 1
+paraphrase, and 2 false-kill bugs** — both bugs now fixed:
 
 | drop | actual classification |
 |----|----|
 | I-strict T86-T93 | **TRUE fabrication** — proposal invented, real user turn attached. Correct drop. |
 | H-deferral T78-T79 | **paraphrased anchor** — real assent moment, but the lens summarized the AI turn instead of quoting it. Defensible drop (verbatim gate), but a real moment → recall cost. |
-| H-deferral T479-T480 | **digest truncation** — the AI's "两条路：…" was cut by the tool_result cap, so the verbatim genuinely isn't in what the lens saw. Pipeline limitation, not a fabrication. |
-| H-pivot T638 | **FALSE KILL** — the patch-list verbatim *is* at T638, but the AI repeated it earlier and first-match citation locked onto the earlier copy. |
+| H-deferral T479-T480 | **FALSE KILL (fixed)** — NOT truncation (my earlier label was wrong; the full "两条路 / **A.** / **B.**" block is present at T479). `extractVerbatims` stopped at the first `\n**`, cutting the quote to "两条路：" (5 chars, unlocatable). Fixed: verbatim now runs to the next field header. |
+| H-pivot T638 | **FALSE KILL (fixed)** — the patch-list verbatim *is* at T638, but the AI repeated it earlier and first-match citation locked onto the earlier copy. Fixed: nearest-occurrence selection. |
 
-**Fix:** `locateAllSnippets()` + nearest-occurrence selection in
-`checkEventGrounding` — citation now accepts the occurrence closest to the cited
-anchor. Verified after fix: T638 → **KEPT**; the genuine fabrication (I-T86), the
-original B-strict T85/T127 case, and the truncated/paraphrased drops all still
-**DROP**. +1 regression test (`grounding.test.ts`), full observation suite **67
-pass / 0 fail**, typecheck clean, dist + plugin bin rebuilt.
+**Fixes (two, both regression-tested):**
+1. `locateAllSnippets()` + nearest-occurrence selection — citation accepts the
+   occurrence closest to the cited anchor (recovers T638).
+2. Verbatim extraction runs until the next field header (`\n**Label**:`) instead
+   of the first `\n**`, so inline `**A.**`/`**B.**` bold no longer truncates the
+   quote (recovers T479).
 
-**Verdict on contingency:** mixed, and that's the honest outcome. The digest
-fixes and `assented` generalize; the grounding gate was over-claimed on first
-read, and unseen data exposed a multi-occurrence false-kill that is now fixed and
-regression-tested. The 4 drops break down as 1 correct catch, 1 recovered false
-kill, 1 paraphrase (defensible), 1 digest-truncation — not "4 clean fabrications."
+Verified after both fixes (real data): T638 → **KEPT**, T479 → **KEPT**; the
+genuine fabrication (I-T86), the paraphrase (H-T78), and the original B-strict
+T85/T127 case all still **DROP**. +2 regression tests, full observation suite
+**68 pass / 0 fail**, typecheck clean, dist + plugin bin rebuilt.
+
+**Verdict on contingency:** mixed, and that is exactly why the test was worth
+running. The digest fixes and `assented` generalize cleanly to unseen projects
+(`engaged=0` on all three). But the grounding gate was **over-claimed twice** —
+unseen data exposed *two* distinct false-kill bugs (multi-occurrence citation,
+bold-marker extraction) that the original corpus never triggered, both now fixed
+and pinned by tests. Honest tally of the 4 drops: **1 correct catch (fabrication),
+1 defensible (paraphrase), 2 false kills now repaired** — not "4 clean
+fabrications." The conclusion is reassuring, but only after self-correction got
+there.
 
 ## Caveats
 
