@@ -56,19 +56,26 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
 
-/** id of the turn whose text contains the snippet (normalized), or -1. */
-export function locateSnippet(snippet: string, turns: TurnText[]): number {
+/** ALL turn ids whose text contains the snippet (normalized). */
+export function locateAllSnippets(snippet: string, turns: TurnText[]): number[] {
   const n = normalize(snippet);
-  if (n.length < 4) return -1;
+  if (n.length < 4) return [];
   // Probe from both ends: the lens sometimes drifts on a leading token
   // (e.g. an image marker) but the body still matches.
   const head = n.slice(0, Math.min(30, n.length));
   const tail = n.slice(-Math.min(30, n.length));
+  const ids: number[] = [];
   for (const t of turns) {
     const tn = normalize(t.text);
-    if (tn.includes(n) || tn.includes(head) || tn.includes(tail)) return t.id;
+    if (tn.includes(n) || tn.includes(head) || tn.includes(tail)) ids.push(t.id);
   }
-  return -1;
+  return ids;
+}
+
+/** id of the (first) turn whose text contains the snippet (normalized), or -1. */
+export function locateSnippet(snippet: string, turns: TurnText[]): number {
+  const all = locateAllSnippets(snippet, turns);
+  return all.length ? all[0]! : -1;
 }
 
 function anchorRange(turnAnchor: string | undefined): [number, number] | null {
@@ -120,7 +127,16 @@ export function checkEventGrounding(event: LensEventLike, turns: TurnText[]): Gr
   const { proposal, response } = extractVerbatims(event);
   const range = anchorRange(event.turn_anchor);
 
-  const propTurn = proposal ? locateSnippet(proposal, turns) : -1;
+  // A verbatim can recur across turns (the AI repeats a plan / patch list).
+  // Pick the occurrence nearest the cited anchor so a far-away earlier copy
+  // doesn't trigger a spurious citation failure (multi-occurrence false-kill).
+  const propTurns = proposal ? locateAllSnippets(proposal, turns) : [];
+  let propTurn = propTurns.length ? propTurns[0]! : -1;
+  if (range && propTurns.length) {
+    const inRange = propTurns.find((id) => id >= range[0] - CITATION_TOLERANCE && id <= range[1] + CITATION_TOLERANCE);
+    if (inRange !== undefined) propTurn = inRange;
+    else propTurn = propTurns.reduce((best, id) => (Math.abs(id - range[0]) < Math.abs(best - range[0]) ? id : best), propTurns[0]!);
+  }
   const respTurn = response ? locateSnippet(response, turns) : -1;
 
   // The AI-proposal verbatim is the integrity-critical claim ("the AI proposed

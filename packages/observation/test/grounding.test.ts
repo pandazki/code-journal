@@ -43,6 +43,27 @@ describe('grounding gate', () => {
     assert.equal(citation?.pass, false, 'citation should fail: proposal at T126 not near T85');
   });
 
+  it('PASSES a recurring verbatim when ONE occurrence sits at the cited anchor (multi-occurrence)', () => {
+    // Generalization test (pneuma-craft T638) surfaced this: the AI repeated a
+    // patch-list verbatim earlier in the session, so first-match citation falsely
+    // killed a correctly-cited event. The gate must accept the occurrence nearest
+    // the cited anchor.
+    const multi: TurnText[] = [
+      { id: 40, role: 'assistant', kind: 'text', text: '上游要发两个 patch: react@0.3.2 和 core@0.3.2' },
+      { id: 600, role: 'assistant', kind: 'text', text: '中间无关内容' },
+      { id: 638, role: 'assistant', kind: 'text', text: '上游要发两个 patch: react@0.3.2 和 core@0.3.2' },
+    ];
+    const ev = {
+      lens_id: 'anchored-deferral',
+      turn_anchor: 'T638',
+      payload:
+        '**Anchor verbatim**: 上游要发两个 patch: react@0.3.2 和 core@0.3.2\n' +
+        '**User response verbatim**: 我自己发吧\n**Stance**: overrode',
+    };
+    const r = checkEventGrounding(ev, multi);
+    assert.equal(r.checks.find((c) => c.name === 'citation_accurate')?.pass, true);
+  });
+
   it('REJECTS a chronology violation (response precedes proposal)', () => {
     // proposal at T126, response at T86 → response is 40 turns BEFORE the proposal
     const ev = {
