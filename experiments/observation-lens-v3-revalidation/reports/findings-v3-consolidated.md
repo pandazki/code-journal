@@ -296,11 +296,27 @@ anchored-deferral) — mechanical, not trusting the lens self-check. Suite 64 gr
 
 **Honest status:** the lens cleanly covers the *mid-session off-anchor pivot*
 (proven on the controlled tripwire) — closing the structural blind spot #3 was
-about — and the leg-1 guard kills the one real-data false positive. It does NOT
-turn proj-B's two specific recall misses into hits: the opener is out of scope
-by design, and question-form concern-surfacing is a definitional edge left for
-tuning. Net: the mode is now representable and correctly bounded; coverage of
-its softer edges (questions, openers) is future work.
+about. It does NOT turn proj-B's two specific recall misses into hits: the opener
+is out of scope by design, and question-form concern-surfacing is a definitional
+edge left for tuning.
+
+### #3 follow-up — leg-1 made a mechanical, deferral-independent gate
+
+The first cross-lens guard only suppressed a pivot when the deferral lens
+happened to anchor the same turn — the end-to-end smoke caught it slipping
+(proj-B T103 survived because the v3 deferral run didn't anchor T102). Fixed by a
+**mechanical leg-1 check inside the grounding gate** (`no_preceding_fork`, fatal):
+it finds the AI turn(s) since the user's previous message and tests them for fork
+markers (direct question / ≥2 named options / "还是·要不要·N个…可选" / explicit
+uncertainty / AskUserQuestion render) — independent of the deferral run, enforced
+at ingestion before the append-only store.
+
+Verified on the real pipeline (stored signal artifacts): `strict=1` (T85
+fabrication dropped), `anchored-deferral=8`, **`user-initiated-pivot=0`** — T103
+rejected because T102 ("…有两个目录可选") is detected as a fork. Controlled
+tripwire GT-C (preceding AI turn = "我接着把 CHANGELOG 更新一下", no fork) still
+passes. +2 tests, suite 64→66 green. The compose-time cross-lens guard remains as
+belt-and-suspenders.
 
 ## Caveats
 
