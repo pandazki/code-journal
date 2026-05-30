@@ -93,6 +93,15 @@ interface Verbatims {
   response: string | null;
 }
 
+/**
+ * A verbatim field runs until the NEXT payload field header — a line like
+ * `\n**Stance**:` (bold text immediately followed by a colon). It must NOT stop
+ * at inline bold inside the quote itself (e.g. a two-option block using
+ * `**A.**` / `**B.**`), which the naive `\n**` terminator wrongly truncated
+ * (pneuma-craft T479 false drop). Matches half- and full-width colons.
+ */
+const FIELD_END = '(?=\\n\\*\\*[^\\n]+?\\*\\*\\s*[:：]|$)';
+
 /** Pull the proposal + response verbatim out of the lens payload, per lens. */
 export function extractVerbatims(event: LensEventLike): Verbatims {
   const p = event.payload ?? '';
@@ -102,8 +111,8 @@ export function extractVerbatims(event: LensEventLike): Verbatims {
   };
   if (event.lens_id === 'strict-negative-space') {
     return {
-      proposal: grab(/Event \(AI proposal[^)]*\)\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
-      response: grab(/Event \(user response[^)]*\)\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
+      proposal: grab(/Event \(AI proposal[^)]*\)\*\*:\s*([\s\S]*?)(?=\n\*\*[^\n]+?\*\*\s*[:：]|$)/),
+      response: grab(/Event \(user response[^)]*\)\*\*:\s*([\s\S]*?)(?=\n\*\*[^\n]+?\*\*\s*[:：]|$)/),
     };
   }
   if (event.lens_id === 'user-initiated-pivot') {
@@ -111,14 +120,14 @@ export function extractVerbatims(event: LensEventLike): Verbatims {
     // at it). "proposal" here = that user-direction verbatim; "response" = the
     // preceding AI turn (soft, used only for response_found reporting).
     return {
-      proposal: grab(/Event \(user direction[^)]*\)\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
-      response: grab(/Event \(preceding AI turn[^)]*\)\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
+      proposal: grab(/Event \(user direction[^)]*\)\*\*:\s*([\s\S]*?)(?=\n\*\*[^\n]+?\*\*\s*[:：]|$)/),
+      response: grab(/Event \(preceding AI turn[^)]*\)\*\*:\s*([\s\S]*?)(?=\n\*\*[^\n]+?\*\*\s*[:：]|$)/),
     };
   }
   // anchored-deferral
   return {
-    proposal: grab(/Anchor verbatim\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
-    response: grab(/User response verbatim\*\*:\s*([\s\S]*?)(?:\n\*\*|$)/),
+    proposal: grab(/Anchor verbatim\*\*:\s*([\s\S]*?)(?=\n\*\*[^\n]+?\*\*\s*[:：]|$)/),
+    response: grab(/User response verbatim\*\*:\s*([\s\S]*?)(?=\n\*\*[^\n]+?\*\*\s*[:：]|$)/),
   };
 }
 

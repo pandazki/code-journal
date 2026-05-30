@@ -20,7 +20,7 @@ const cases = [
   ['H', 'runs2/H-pivot.json', 'user-initiated-pivot', 'T638', 'KEEP (was false-kill)'],
   ['I', 'runs2/I-strict.json', 'strict-negative-space', 'T86-T93', 'DROP (true fabrication)'],
   ['H', 'runs2/H-deferral.json', 'anchored-deferral', 'T78-T79', 'DROP (paraphrased anchor)'],
-  ['H', 'runs2/H-deferral.json', 'anchored-deferral', 'T479-T480', 'DROP (digest-truncated)'],
+  ['H', 'runs2/H-deferral.json', 'anchored-deferral', 'T479-T480', 'KEEP (was false-kill: **A.**/**B.** bold markers truncated extraction)'],
   ['B', 'runs/B-strict-1.json', 'strict-negative-space', 'T85-T95', 'DROP (T127 fabrication regression)'],
 ];
 const out = [];

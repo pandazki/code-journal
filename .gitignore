@@ -39,3 +39,6 @@ experiments/observation-lens-v2/e5/events/
 experiments/observation-lens-v2/e6/digests/
 experiments/observation-lens-v2/e6/events/
 experiments/observation-lens-v2/e7/reconstruction.md
+
+# transient verification scratch outputs
+experiments/observation-lens-v3-revalidation/_*
