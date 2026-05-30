@@ -143,6 +143,36 @@ describe('grounding gate', () => {
     assert.equal(r.grounded, true);
   });
 
+  it('extracts a verbatim that contains markdown bold markers (**A.**/**B.**)', () => {
+    // Generalization test (pneuma-craft T479) surfaced this: the lens quoted a
+    // two-option block whose body used **A.**/**B.** bold markers. The extractor
+    // stopped at the first `\n**`, capturing only "两条路：" (too short to locate)
+    // → false drop. The verbatim must run until the NEXT field header.
+    const opt: TurnText[] = [
+      {
+        id: 479,
+        role: 'assistant',
+        kind: 'text',
+        text: '两条路：\n\n**A.** 我本地跑 changeset version 直接推。\n\n**B.** 你去 Settings 勾上权限我重跑。\n\n我倾向走 A，OK 吗？',
+      },
+    ];
+    const ev = {
+      lens_id: 'anchored-deferral',
+      turn_anchor: 'T479',
+      payload:
+        '**Anchor (AI salience event)**: ≥2-named-options\n\n' +
+        '**Anchor verbatim**: "两条路：\n\n**A.** 我本地跑 changeset version 直接推。\n\n' +
+        '**B.** 你去 Settings 勾上权限我重跑。\n\n我倾向走 A，OK 吗？"\n\n' +
+        '**User response verbatim**: "我自己发吧"\n\n**Stance**: overrode',
+    };
+    const r = checkEventGrounding(ev, opt);
+    assert.equal(
+      r.checks.find((c) => c.name === 'proposal_found')?.pass,
+      true,
+      'anchor verbatim with **A.**/**B.** must be extracted in full and located',
+    );
+  });
+
   it('locateSnippet finds the right turn', () => {
     assert.equal(locateSnippet('算了,先别加校验', turns), 33);
     assert.equal(locateSnippet('完全不存在的句子xyz', turns), -1);
