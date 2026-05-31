@@ -138,7 +138,21 @@ rejected — too lossy). Sessions are read locally; nothing is uploaded.
 
 ## How to read an audit episode
 
-An episode is markdown at
+### The web console (recommended)
+
+Run `code-journal` to open the journal, then click **Observation →** (or visit
+`/observe`). The console reads `~/.code-journal/observations/` live and renders,
+per episode: the **stance distribution** as an ink band (direction injected takes
+ink; declined stays faint), a **density strip** of where in the session direction
+landed, and **per-event cards** with verbatim quotes — each expandable for source
+refs and the lens's reasoning. **Settings** (`/observe#/settings`) edits
+per-project config (model, compose threshold). Built for the content density the
+TUI can't show; served by `packages/app` (the same zero-dep local server as the
+journal); nothing is uploaded.
+
+### The raw markdown
+
+Each episode is also plain markdown at
 `~/.code-journal/observations/<project>/episodes/<n>-<date>.md` (immutable; the
 `.json` sibling is its metadata). Sections:
 

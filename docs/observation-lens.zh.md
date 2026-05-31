@@ -125,8 +125,20 @@ session 在本地读取,不上传任何东西。
 
 ## 怎么读一个审计 episode
 
-episode 是位于
-`~/.code-journal/observations/<project>/episodes/<n>-<date>.md` 的 markdown
+### web console(推荐)
+
+跑 `code-journal` 打开 journal,点 **Observation →**(或访问 `/observe`)。console
+实时读取 `~/.code-journal/observations/`,逐 episode 渲染:**stance 分布**做成墨色
+带(注入方向的吃墨;未注入的留为浅色纸面)、一条显示方向**落在会话哪个位置**的
+密度条、以及**逐事件卡片**(含逐字引用,可展开看 source ref 和判定理由)。
+**Settings**(`/observe#/settings`)可改每项目配置(model、compose 阈值)。它就是
+为 TUI 显示不了的内容密度而做的;由 `packages/app`(与 journal 同一个零依赖本地
+server)提供;不上传任何东西。
+
+### 原始 markdown
+
+每个 episode 同时也是纯 markdown,位于
+`~/.code-journal/observations/<project>/episodes/<n>-<date>.md`
 (不可变;同名 `.json` 是它的元数据)。各段:
 
 - **Scope / Method** —— 覆盖的时间窗、跑了哪些 lens 版本。
