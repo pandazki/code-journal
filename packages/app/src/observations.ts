@@ -16,6 +16,8 @@ import {
   readSignals,
   episodeMetadataPath,
   LENS_IDS,
+  LANGUAGES,
+  isLanguageCode,
   type LensId,
   type ObservationEvent,
 } from '@code-journal/observation';
@@ -44,11 +46,19 @@ export interface OverviewProject {
   lens_versions: Record<string, string>;
   config_model: 'sonnet' | 'opus';
   compose_threshold: number;
+  analysis_language: string;
+  analysis_language_auto: boolean;
   last_scan: string | null;
   latest_episode: { episode: number; date: string; event_count: number } | null;
 }
 
-export function overview(): { projects: OverviewProject[] } {
+export interface OverviewResult {
+  projects: OverviewProject[];
+  /** Available analysis languages for the Settings dropdown. */
+  languages: { code: string; label: string }[];
+}
+
+export function overview(): OverviewResult {
   const projects: OverviewProject[] = [];
   for (const id of listProjectIds()) {
     let state;
@@ -76,6 +86,8 @@ export function overview(): { projects: OverviewProject[] } {
       lens_versions: state.config?.lens_versions ?? {},
       config_model: state.config?.model ?? 'sonnet',
       compose_threshold: state.config?.compose_threshold ?? 10,
+      analysis_language: state.config?.analysis_language ?? 'en',
+      analysis_language_auto: state.config?.analysis_language_auto !== false,
       last_scan: state.last_scan?.at || null,
       latest_episode: latest
         ? { episode: latest.episode, date: epDate(latest.composed_at), event_count: latest.event_count }
@@ -83,7 +95,7 @@ export function overview(): { projects: OverviewProject[] } {
     });
   }
   projects.sort((a, b) => b.events.total - a.events.total); // densest first
-  return { projects };
+  return { projects, languages: LANGUAGES.map((l) => ({ code: l.code, label: l.label })) };
 }
 
 export interface EpisodeView {
@@ -152,11 +164,19 @@ export interface ConfigPatch {
   pid: string;
   model?: string;
   compose_threshold?: number;
+  /** A language code from LANGUAGES, or 'auto' to (re-)enable detection. */
+  analysis_language?: string;
 }
 
-/** Update a project's observation config (model, compose_threshold). Returns the
- *  applied values. Validates inputs; haiku is rejected (too lossy for lenses). */
-export function setConfig(patch: ConfigPatch): { ok: true; model: string; compose_threshold: number } {
+/** Update a project's observation config. Returns the applied values.
+ *  Validates inputs; haiku is rejected (too lossy for lenses). */
+export function setConfig(patch: ConfigPatch): {
+  ok: true;
+  model: string;
+  compose_threshold: number;
+  analysis_language: string;
+  analysis_language_auto: boolean;
+} {
   const id = String(patch.pid || '').trim();
   if (!id) throw new Error('pid required');
   // Path-segment guard — the id is used as a directory name downstream.
@@ -175,6 +195,24 @@ export function setConfig(patch: ConfigPatch): { ok: true; model: string; compos
     if (!Number.isFinite(n) || n < 1 || n > 999) throw new Error('compose_threshold must be 1–999');
     state.config.compose_threshold = n;
   }
+  if (patch.analysis_language !== undefined) {
+    const v = String(patch.analysis_language);
+    if (v === 'auto') {
+      // hand control back to detection; next sync (re)infers the language
+      state.config.analysis_language_auto = true;
+    } else if (isLanguageCode(v)) {
+      state.config.analysis_language = v;
+      state.config.analysis_language_auto = false; // pinned by the user
+    } else {
+      throw new Error(`invalid analysis_language '${v}'`);
+    }
+  }
   writeProjectState(state);
-  return { ok: true, model: state.config.model, compose_threshold: state.config.compose_threshold };
+  return {
+    ok: true,
+    model: state.config.model,
+    compose_threshold: state.config.compose_threshold,
+    analysis_language: state.config.analysis_language,
+    analysis_language_auto: state.config.analysis_language_auto,
+  };
 }

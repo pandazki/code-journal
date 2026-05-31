@@ -498,6 +498,17 @@ export interface ProjectStateConfig {
   lens_versions: { [K in LensId]: string };
   /** § 6.4: haiku is banned for production; default sonnet */
   model: 'sonnet' | 'opus';
+  /**
+   * Language the lenses write their PROSE in (Arc/Before/After/Why/empty-state).
+   * Structural tokens, stance keywords, and verbatim quotes are never translated.
+   * A code from LANGUAGES (default 'en'). See language.ts.
+   */
+  analysis_language: string;
+  /**
+   * When true, first sync may overwrite analysis_language by detecting the user's
+   * language from their own turns. Set false once a user pins it in Settings.
+   */
+  analysis_language_auto: boolean;
   _extra: JsonObject;
 }
 
@@ -619,7 +630,13 @@ function serializeProjectStateEpisodeRef(e: ProjectStateEpisodeRef): JsonObject 
 }
 
 function parseProjectStateConfig(d: JsonObject): ProjectStateConfig {
-  const known = new Set(['compose_threshold', 'lens_versions', 'model']);
+  const known = new Set([
+    'compose_threshold',
+    'lens_versions',
+    'model',
+    'analysis_language',
+    'analysis_language_auto',
+  ]);
   const extra: JsonObject = {};
   for (const [k, v] of Object.entries(d)) if (!known.has(k)) extra[k] = v;
   const lvRaw = (d.lens_versions ?? {}) as JsonObject;
@@ -632,6 +649,8 @@ function parseProjectStateConfig(d: JsonObject): ProjectStateConfig {
       'user-initiated-pivot': String(lvRaw['user-initiated-pivot'] ?? 'v1.0'),
     },
     model,
+    analysis_language: String(d.analysis_language ?? 'en'),
+    analysis_language_auto: d.analysis_language_auto !== false,
     _extra: extra,
   };
 }
@@ -645,6 +664,8 @@ function serializeProjectStateConfig(c: ProjectStateConfig): JsonObject {
       'user-initiated-pivot': c.lens_versions['user-initiated-pivot'],
     },
     model: c.model,
+    analysis_language: c.analysis_language,
+    analysis_language_auto: c.analysis_language_auto,
   };
   for (const [k, v] of Object.entries(c._extra)) out[k] = v;
   return out;
@@ -670,6 +691,8 @@ export function newProjectState(projectId: string, displayName: string): Project
         'user-initiated-pivot': 'v1.0',
       },
       model: 'sonnet',
+      analysis_language: 'en',
+      analysis_language_auto: true,
       _extra: {},
     },
     _extra: {},
