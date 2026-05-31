@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" data-theme="">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Code Journal</title>
+    <meta
+      name="description"
+      content="A typeset edition of your work — a local journal of your AI coding-agent sessions."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400..500&family=Spline+Sans+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="journal.css" />
+  </head>
+  <body>
+    <!-- The journal is fetched from GET /api/journal — see journal.js. -->
+    <header class="masthead">
+      <a class="wordmark" href="#/" aria-label="Code Journal — home">
+        <span class="wordmark-name">Code Journal</span>
+      </a>
+      <div class="masthead-end">
+        <span class="masthead-note" id="masthead-note"></span>
+        <button
+          class="theme-toggle"
+          id="theme-toggle"
+          type="button"
+          aria-label="Switch theme"
+          title="Switch theme"
+        ></button>
+      </div>
+    </header>
+
+    <main id="view" class="view" tabindex="-1"></main>
+
+    <footer class="colophon">
+      <span
+        >Set in Libre Caslon &amp; Literata. A local journal — nothing leaves
+        this machine.</span
+      >
+      <span class="colophon-mark">¶</span>
+    </footer>
+
+    <script src="journal.js"></script>
+  </body>
+</html>

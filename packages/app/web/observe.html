@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Observation — code-journal</title>
+<meta name="description" content="Where you — not the agent — set the direction in your AI coding sessions." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="observe.css" />
+</head>
+<body data-view="loading">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="masthead">
+    <div class="masthead-line">
+      <a class="masthead-home" href="/" title="Back to the journal">code-journal</a>
+      <span class="masthead-sep" aria-hidden="true">·</span>
+      <span class="masthead-section">Observation</span>
+    </div>
+    <div class="masthead-end">
+      <button class="settings-btn" type="button" id="settings-btn" title="Settings">Settings</button>
+      <button class="theme-toggle" type="button" aria-label="Toggle light or dark" title="Toggle theme">
+        <span class="theme-toggle-mark" aria-hidden="true"></span>
+      </button>
+    </div>
+  </header>
+
+  <p class="standfirst">
+    A record of where <em>you</em> — not the agent — set the direction. Drawn from
+    your own coding sessions; every mark below points back to verbatim transcript.
+  </p>
+
+  <main id="main" class="sheet" aria-live="polite">
+    <div class="loading-note">Reading the observation ledger…</div>
+  </main>
+
+  <footer class="colophon">
+    <span>Set in Libre Caslon Display &amp; Literata.</span>
+    <span class="colophon-note">Mirror, not judge — no stance is “better”.</span>
+  </footer>
+
+  <script type="module" src="observe.js"></script>
+</body>
+</html>
