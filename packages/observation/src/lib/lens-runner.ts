@@ -65,6 +65,12 @@ export interface RunLensArgs {
   agent: AgentId;
   /** sonnet (default) or opus. haiku rejected. */
   model?: 'sonnet' | 'opus';
+  /**
+   * Prompt phrase for the language the lens writes PROSE in (e.g. "English",
+   * "Chinese (match the user's variant)"). Structural tokens + verbatim quotes
+   * are never translated. Omit → English. Use languagePromptName(code).
+   */
+  analysisLanguage?: string;
   /** Timeout per scan in ms (default 10 min — big sessions take time on sonnet). */
   timeoutMs?: number;
 }
@@ -110,6 +116,7 @@ export function runLens(args: RunLensArgs): RunLensResult {
     lensId: args.lensId,
     projectId: args.projectId,
     sessionId: args.sessionId,
+    analysisLanguage: args.analysisLanguage,
     retryReminder: false,
   });
 
@@ -125,6 +132,7 @@ export function runLens(args: RunLensArgs): RunLensResult {
     lensId: args.lensId,
     projectId: args.projectId,
     sessionId: args.sessionId,
+    analysisLanguage: args.analysisLanguage,
     retryReminder: true,
   });
   const retry = dispatchAndParse(retryPrompt, args);
@@ -228,8 +236,17 @@ function buildPrompt(args: {
   lensId: LensId;
   projectId: string;
   sessionId: string;
+  analysisLanguage?: string;
   retryReminder: boolean;
 }): string {
+  // Localize ONLY the model-authored prose. Field labels, stance keywords, and
+  // verbatim quotes stay exactly as the lens spec defines them — the grounding
+  // gate and audit composer parse those, and quotes must stay in the user's words.
+  const lang = (args.analysisLanguage ?? 'English').trim();
+  const languageBlock =
+    lang && lang !== 'English'
+      ? `\n# Output language\n\nWrite every prose field you author — the Arc, Before, After, "Why" explanations, "Redirected to", and any empty_state_reason — in **${lang}**. Do NOT translate: field labels (e.g. \`**Stance**:\`), the classification/stance keywords (engaged / assented / deferred / overrode / ignored / negative-space / user-initiated-pivot), or any verbatim quotes — copy quotes exactly as they appear in the transcript, in their original language.\n`
+      : '';
   const reminderLine = args.retryReminder
     ? '\n**Critical**: your previous output was not strict JSON. Re-output as STRICT JSON. Every `"` inside verbatim text MUST be `\\"`. Alternatively use Chinese curly quotes 「」 for inner-quoted phrases.\n'
     : '';
@@ -250,7 +267,7 @@ ${args.schemaSpec}
 - project_id: ${args.projectId}
 - session_id: ${args.sessionId}
 - lens_id: ${args.lensId}
-
+${languageBlock}
 # Transcript digest
 
 ${args.digestMarkdown}

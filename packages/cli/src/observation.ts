@@ -28,6 +28,9 @@ import {
   runLens,
   checkEventGrounding,
   turnsFromDigest,
+  detectLanguage,
+  languagePromptName,
+  languageLabel,
   LENS_IDS,
   type ProjectState,
   type LensId,
@@ -235,6 +238,7 @@ function scanOneSession(
       sessionId: session.id,
       agent: session.agent as AgentId,
       model: state.config.model,
+      analysisLanguage: languagePromptName(state.config.analysis_language),
     });
     if (!result.ok) {
       throw new Error(`${lensId} failed: ${result.reason}`);
@@ -375,7 +379,7 @@ export async function cmdObservationStatus(rest: string[], _ctx: ObsCliContext):
     }
     if (verbose) {
       process.stdout.write(
-        `  lens versions: strict-negative-space=${state.config.lens_versions['strict-negative-space']}, anchored-deferral=${state.config.lens_versions['anchored-deferral']}, user-initiated-pivot=${state.config.lens_versions['user-initiated-pivot']}, model=${state.config.model}\n`,
+        `  lens versions: strict-negative-space=${state.config.lens_versions['strict-negative-space']}, anchored-deferral=${state.config.lens_versions['anchored-deferral']}, user-initiated-pivot=${state.config.lens_versions['user-initiated-pivot']}, model=${state.config.model}, language=${languageLabel(state.config.analysis_language)}${state.config.analysis_language_auto ? ' (auto)' : ''}\n`,
       );
     }
   }

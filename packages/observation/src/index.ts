@@ -35,3 +35,4 @@ export * from './lib/state';
 export * from './lib/lens-runner';
 export * from './lib/grounding';
 export * from './lib/compose';
+export * from './lib/language';

@@ -349,14 +349,26 @@ function eventEntry(m) {
 // ── settings ─────────────────────────────────────────────────────────────
 function renderSettings(data) {
   const projects = data.projects || [];
+  const languages = data.languages || [];
   document.querySelector('#settings-btn')?.setAttribute('aria-current', 'true');
   const rows = projects.map((p, i) => {
     const lv = p.lens_versions || {};
     const versions = Object.entries(lv).map(([k, v]) => `${k.replace(/-/g, ' ')} ${v}`).join(' · ') || '—';
+    const langSel = p.analysis_language_auto ? 'auto' : p.analysis_language;
+    const autoLabel = (languages.find((l) => l.code === p.analysis_language)?.label) || p.analysis_language;
+    const langOpts = [
+      `<option value="auto" ${langSel === 'auto' ? 'selected' : ''}>Auto-detect${p.analysis_language_auto ? ` (now: ${esc(autoLabel)})` : ''}</option>`,
+      ...languages.map((l) => `<option value="${esc(l.code)}" ${langSel === l.code ? 'selected' : ''}>${esc(l.label)}</option>`),
+    ].join('');
     return `
       <div class="settings-project" data-pid="${esc(p.id)}" data-animate style="--d:${i * 40}ms">
         <h2>${esc(p.display_name)}</h2>
         <div class="field-grid">
+          <div class="field">
+            <label for="lang-${i}">Analysis language</label>
+            <select id="lang-${i}" data-k="analysis_language">${langOpts}</select>
+            <span class="hint">Language the lenses write findings in. Auto-detect infers it from your own messages; quotes always stay in their original language.</span>
+          </div>
           <div class="field">
             <label for="model-${i}">Model</label>
             <select id="model-${i}" data-k="model">
@@ -399,11 +411,13 @@ function renderSettings(data) {
       const pid = btn.dataset.save;
       const model = wrap.querySelector('[data-k="model"]').value;
       const thr = Number(wrap.querySelector('[data-k="compose_threshold"]').value);
+      const analysis_language = wrap.querySelector('[data-k="analysis_language"]').value;
       const state = wrap.querySelector('.save-state');
       btn.disabled = true; state.className = 'save-state'; state.textContent = 'saving…';
       try {
-        await postJSON('/api/observations/config', { pid, model, compose_threshold: thr });
+        await postJSON('/api/observations/config', { pid, model, compose_threshold: thr, analysis_language });
         state.className = 'save-state ok'; state.textContent = 'saved ✓';
+        setTimeout(() => route(), 600); // re-render: lang change flips auto + the "now:" label
       } catch (err) {
         state.className = 'save-state'; state.textContent = `error: ${err.message}`;
       } finally {

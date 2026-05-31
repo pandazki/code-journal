@@ -190,6 +190,41 @@ export function composeAudit(args: ComposeArgs): ComposeResult {
 // Rendering
 // =============================================================================
 
+/**
+ * Audit section headings, per analysis language. Only the heading strings are
+ * localized — the per-event lens prose carries the user's language. English is
+ * the fallback for any language without a table; more can be added incrementally.
+ */
+function auditHeadings(lang: string): {
+  method: string; measurements: string; stance: string;
+  strict: string; deferral: string; pivot: string;
+  fate: string; limitations: string; sources: string;
+} {
+  const en = {
+    method: '## Method',
+    measurements: '## Measurements',
+    stance: "## Stance distribution (the user's response side)",
+    strict: '## Findings — Strict negative-space',
+    deferral: '## Findings — Anchored deferral',
+    pivot: '## Findings — User-initiated pivot',
+    fate: '## Fate updates',
+    limitations: '## Limitations',
+    sources: '## Source index',
+  };
+  const zh = {
+    method: '## 方法',
+    measurements: '## 测量',
+    stance: '## 姿态分布(用户的回应侧)',
+    strict: '## 发现 — 严格负空间',
+    deferral: '## 发现 — 锚定姿态',
+    pivot: '## 发现 — 用户自发转向',
+    fate: '## 命运更新',
+    limitations: '## 局限',
+    sources: '## 来源索引',
+  };
+  return lang === 'zh' ? zh : en;
+}
+
 function renderAudit(
   episode: AuditEpisode,
   strict: ObservationEvent[],
@@ -198,6 +233,7 @@ function renderAudit(
   turnMaps: Map<string, TurnMap>,
   state: ProjectState,
 ): string {
+  const h = auditHeadings(state.config.analysis_language);
   const out: string[] = [];
   const windowDisplay = episode.window.start
     ? episode.window.start === episode.window.end
@@ -205,13 +241,15 @@ function renderAudit(
       : `${episode.window.start} → ${episode.window.end}`
     : '(unknown range)';
 
-  out.push(`# Audit · ${state.display_name || state.project_id} · Episode ${episode.episode} · ${windowDisplay}`);
+  const titleWord = state.config.analysis_language === 'zh' ? '审计' : 'Audit';
+  const epWord = state.config.analysis_language === 'zh' ? '第 ' + episode.episode + ' 期' : 'Episode ' + episode.episode;
+  out.push(`# ${titleWord} · ${state.display_name || state.project_id} · ${epWord} · ${windowDisplay}`);
   out.push('');
 
   // ── Scope ────────────────────────────────────────────────────────────────
   const sessionIds = unique([...strict, ...deferral].map((e) => e.session_id));
   const agents = unique([...strict, ...deferral].map((e) => e.agent));
-  out.push('## Scope');
+  out.push(state.config.analysis_language === 'zh' ? '## 范围' : '## Scope');
   out.push('');
   out.push(`- Time window: ${windowDisplay}`);
   out.push(`- Sessions covered: ${sessionIds.length}`);
@@ -227,7 +265,7 @@ function renderAudit(
   out.push('');
 
   // ── Method ───────────────────────────────────────────────────────────────
-  out.push('## Method');
+  out.push(h.method);
   out.push('');
   out.push('Two lenses run independently over each session digest, each in an isolated');
   out.push('subagent context (no cross-contamination between lenses or between projects):');
@@ -252,7 +290,7 @@ function renderAudit(
 
   // ── Measurements ─────────────────────────────────────────────────────────
   const m = episode.measurements;
-  out.push('## Measurements');
+  out.push(h.measurements);
   out.push('');
   out.push('Intrinsic counts and durations only. No normalised scores, no cross-collaboration');
   out.push('comparison. Reader attaches meaning.');
@@ -284,7 +322,7 @@ function renderAudit(
 
   // ── Anchor distribution (BEFORE stance — v1 wrap-up punch list) ─────────
   const anchorTypes = countAnchorTypes(deferral);
-  out.push("## Anchor distribution (the agent's salience-event side)");
+  out.push(state.config.analysis_language === 'zh' ? '## 锚点分布(AI 决策点)' : "## Anchor distribution (the agent's salience-event side)");
   out.push('');
   out.push(`Total anchors: ${deferral.length} (${m.m1_anchor_density_per_100t.toFixed(2)} per 100 turns).`);
   out.push('');
@@ -301,7 +339,7 @@ function renderAudit(
 
   // ── Stance distribution ─────────────────────────────────────────────────
   const stances = countStances(deferral);
-  out.push("## Stance distribution (the user's response side)");
+  out.push(h.stance);
   out.push('');
   out.push('Counts, not rates. Reported as a 5-tuple to preserve shape.');
   out.push('');
@@ -324,7 +362,7 @@ function renderAudit(
   out.push('');
 
   // ── Findings — strict ────────────────────────────────────────────────────
-  out.push('## Findings — Strict negative-space');
+  out.push(h.strict);
   out.push('');
   if (strict.length === 0) {
     out.push('**EMPTY-STATE**: no strict-negative-space events surfaced in this episode.');
@@ -350,7 +388,7 @@ function renderAudit(
   }
 
   // ── Findings — anchored deferral ─────────────────────────────────────────
-  out.push('## Findings — Anchored deferral');
+  out.push(h.deferral);
   out.push('');
   if (deferral.length === 0) {
     out.push('**EMPTY-STATE**: no anchored-deferral events surfaced in this episode.');
@@ -381,7 +419,7 @@ function renderAudit(
   }
 
   // ── Findings — user-initiated pivot ──────────────────────────────────────
-  out.push('## Findings — User-initiated pivot');
+  out.push(h.pivot);
   out.push('');
   out.push('Direction the user injected where the AI exposed no decision point.');
   out.push('');
@@ -422,7 +460,7 @@ function renderAudit(
   // ── Fate updates ─────────────────────────────────────────────────────────
   out.push('---');
   out.push('');
-  out.push('## Fate updates');
+  out.push(h.fate);
   out.push('');
   if (episode.fate_updates_surfaced.length === 0) {
     if (state.episodes.length === 0) {
@@ -445,7 +483,7 @@ function renderAudit(
   out.push('');
 
   // ── Limitations ──────────────────────────────────────────────────────────
-  out.push('## Limitations');
+  out.push(h.limitations);
   out.push('');
   out.push('- **Recall is not validated.** Lens precision verified by participant review; how many events the lens *missed* is structurally unverifiable from precision-only checks (§ 14.1).');
   out.push('- **Run-to-run variance is real.** Stance counts can vary ±30% across re-scans of the same digest (Phase 2 E1, especially in the `overrode` and `engaged` categories). Treat single-run numbers as one sample, not ground truth.');
@@ -454,7 +492,7 @@ function renderAudit(
   out.push('');
 
   // ── Source index ─────────────────────────────────────────────────────────
-  out.push('## Source index');
+  out.push(h.sources);
   out.push('');
   out.push(`- Project: \`${state.project_id}\``);
   out.push(`- Sessions in this episode (${sessionIds.length}):`);
