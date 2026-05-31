@@ -123,6 +123,15 @@ code-journal status --project myproj --verbose   # 同时打印 lens 版本
 前置条件:PATH 上有可用的 `claude` CLI(lens 调用它;`haiku` 被拒——丢失太多)。
 session 在本地读取,不上传任何东西。
 
+### 分析语言
+
+lens 用项目的分析语言来写**散文部分**(Arc / Before / After /「为什么」/ 空状态
+理由)。首次 sync 时,语言会**从你自己的消息自动探测**——廉价的字符脚本启发式
+(不调模型;能可靠区分中/日/韩/俄,拉丁文默认英文)。可在 web console 的
+**Settings** 里固定或修改(否则保持 auto,每次 sync 重新探测)。结构性标记(字段
+标签、stance 关键词)和**逐字引用永不翻译**——引用永远保持原文语言。审计的段
+标题也跟随语言(目前英文 + 中文,其它语言回退英文)。
+
 ## 怎么读一个审计 episode
 
 ### web console(推荐)

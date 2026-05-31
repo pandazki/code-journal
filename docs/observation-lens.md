@@ -136,6 +136,18 @@ code-journal status --project myproj --verbose   # also prints lens versions
 Requirements: a working `claude` CLI on PATH (lenses shell out to it; `haiku` is
 rejected — too lossy). Sessions are read locally; nothing is uploaded.
 
+### Analysis language
+
+The lenses write their **prose** (Arc / Before / After / "Why" / empty-state
+reasons) in the project's analysis language. On first sync it is **auto-detected**
+from your own messages — a cheap character-script heuristic (no model call;
+reliably separates Chinese / Japanese / Korean / Russian, defaults to English for
+Latin scripts). Pin or change it in the web console's **Settings** (otherwise it
+stays auto and re-detects each sync). Structural tokens (field labels, stance
+keywords) and **verbatim quotes are never translated** — quotes always stay in
+their original language. Audit section headings follow the language too
+(English + Chinese today, English fallback otherwise).
+
 ## How to read an audit episode
 
 ### The web console (recommended)

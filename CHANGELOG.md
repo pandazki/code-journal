@@ -27,6 +27,10 @@ the visual journal, local-first, mirror-not-judge. Full guide:
 - **`assented` stance** (anchored-deferral v3.0) — bare approval ("继续吧 / keep
   going") is now kept distinct from `engaged`, so approval no longer reads as the
   user actively shaping the work.
+- **Analysis language** — lenses write their prose in the project's language,
+  auto-detected from your own messages on first sync (char-script heuristic, no
+  model call) and overridable in the console's Settings. Verbatim quotes are
+  never translated; audit headings follow the language (EN + ZH today).
 - **Empty-state is explicit** — low-signal sessions produce zero events with a
   reason, never a manufactured story. A forbidden-phrases gate refuses to write
   any audit containing identity claims about the user.
