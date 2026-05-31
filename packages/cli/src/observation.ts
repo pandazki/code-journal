@@ -219,6 +219,28 @@ function scanOneSession(
     /* ignore */
   }
 
+  // Step 1.5: auto-detect the analysis language from the USER's own turns only
+  // (type === 'user', text turns) — never the AI's output or tool noise. Cheap
+  // char-script heuristic, no model call. Runs only while auto; pinning a
+  // language in Settings sets analysis_language_auto = false and skips this.
+  // Mutates state.config in place; the sync loop persists it.
+  if (state.config.analysis_language_auto) {
+    const userText = digestResult.turns
+      .filter((t) => t.role === 'user' && t.kind === 'text' && t.text)
+      .map((t) => t.text as string);
+    if (userText.length > 0) {
+      const detected = detectLanguage(userText);
+      if (detected !== state.config.analysis_language) {
+        if (verbose) {
+          process.stdout.write(
+            `  · analysis language auto-detected from user turns: ${languageLabel(detected)} (was ${languageLabel(state.config.analysis_language)})\n`,
+          );
+        }
+        state.config.analysis_language = detected;
+      }
+    }
+  }
+
   // Step 2: run both lenses in sequence (sync flow). Could parallelise via
   // worker_threads in MVP-III if cost matters; for MVP-II keep sequential
   // to make logs / errors per session legible.
