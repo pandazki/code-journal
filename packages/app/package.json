@@ -1,0 +1,26 @@
+{
+  "name": "@code-journal/app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "code-journal local web GUI — the journal, served from your own coding-agent sessions",
+  "bin": {
+    "code-journal": "./dist/main.js",
+    "cj": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "web"
+  ],
+  "scripts": {
+    "dev": "node --import tsx src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@code-journal/core": "*",
+    "@code-journal/observation": "*"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
