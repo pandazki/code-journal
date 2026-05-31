@@ -15,6 +15,12 @@ the visual journal, local-first, mirror-not-judge. Full guide:
 - **Three lenses** — `strict-negative-space` (macro pivots), `anchored-deferral`
   (your stance at AI decision points), and the experimental
   `user-initiated-pivot` (direction injected with no AI prompt).
+- **Web console** — `code-journal` → **Observation →** (`/observe`): a typeset
+  reader for the audits (stance ink-band, turn-position density strip, per-event
+  verbatim cards) plus per-project settings (model, compose threshold). Built for
+  content density the TUI can't show; served by the same zero-dep local server as
+  the journal. Quickstart: [`docs/observation-lens-quickstart.md`](docs/observation-lens-quickstart.md)
+  (中文: [`.zh.md`](docs/observation-lens-quickstart.zh.md)).
 - **Grounding gate** — every event is mechanically re-verified against the digest
   before it can enter the store; hallucinated or miscited events are dropped at
   ingestion. The model's self-citation is never trusted.

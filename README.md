@@ -78,6 +78,30 @@ faithful, line-numbered transcript viewer with subagent navigation. It's a
 reference implementation; point `cj` at any S3-compatible bucket instead, or
 adapt the server to your own backend.
 
+## The observation lens
+
+A separate product line: take the same raw sessions and surface **where you, not
+the agent, injected direction** — the moments you steered the work, declined what
+was on the table, or introduced a new concern. A mirror, not a judge: every event
+cites verbatim transcript evidence, a grounding gate drops anything it can't
+reproduce against the source, and empty sessions stay empty.
+
+```sh
+code-journal sync --project myproj      # detect direction-injection events
+code-journal compose --project myproj   # render an immutable audit episode
+code-journal status                      # signal-store counts + episode history
+```
+
+Then read them in the **web console** — run `code-journal`, click **Observation →**
+(or visit `/observe`). It renders the stance distribution, a strip of where in
+each session direction landed, and per-event verbatim cards — content the terminal
+can't show at this density — plus per-project settings.
+
+New here? [**Quickstart**](docs/observation-lens-quickstart.md)
+([中文](docs/observation-lens-quickstart.zh.md)) · Full guide:
+[`docs/observation-lens.md`](docs/observation-lens.md)
+([中文](docs/observation-lens.zh.md)).
+
 ## Develop
 
 ```sh
