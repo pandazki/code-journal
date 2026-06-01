@@ -1,6 +1,6 @@
 /**
- * Lens runner — dispatch an isolated subagent (`claude -p`) to apply a
- * single lens to a single digest and return the events.
+ * Lens runner — dispatch an isolated subagent (`claude -p` or `codex exec`)
+ * to apply a single lens to a single digest and return the events.
  *
  * Same shell-out pattern as packages/app/src/narrate.ts:
  *   - no API key needed (uses the host coding agent)
@@ -19,7 +19,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -57,6 +57,15 @@ function eventSchemaPath(): string {
   return join(packageRoot(), 'src', 'lenses', 'event-schema.md');
 }
 
+/**
+ * Which coding-agent CLI applies the lens.
+ *   - 'claude' (default): `claude -p` — uses `model` (sonnet/opus).
+ *   - 'codex': `codex exec` — typically faster; ignores `model` and uses
+ *     Codex's configured default. Runs `--ephemeral` (no session persisted,
+ *     so no self-pollution) and captures the final message via `-o`.
+ */
+export type LensEngine = 'claude' | 'codex';
+
 export interface RunLensArgs {
   lensId: LensId;
   lensVersion: string;
@@ -64,7 +73,9 @@ export interface RunLensArgs {
   projectId: string;
   sessionId: string;
   agent: AgentId;
-  /** sonnet (default) or opus. haiku rejected. */
+  /** Which CLI runs the lens. Default 'claude'. */
+  engine?: LensEngine;
+  /** sonnet (default) or opus. haiku rejected. Claude engine only. */
   model?: 'sonnet' | 'opus';
   /**
    * Prompt phrase for the language the lens writes PROSE in (e.g. "English",
@@ -88,7 +99,7 @@ export type RunLensResult =
  * + digest, output parsed events.
  */
 export function runLens(args: RunLensArgs): RunLensResult {
-  if (((args.model as string) ?? 'sonnet') === 'haiku') {
+  if ((args.engine ?? 'claude') === 'claude' && ((args.model as string) ?? 'sonnet') === 'haiku') {
     return { ok: false, reason: 'haiku is banned for production lens runs (Phase 2 E1: ~50% recall)' };
   }
   if (!isLensId(args.lensId)) {
@@ -158,8 +169,9 @@ type DispatchOutcome =
  */
 const MAX_PROMPT_CHARS = 600_000;
 
+type RawOutcome = { ok: true; text: string } | { ok: false; reason: string };
+
 function dispatchAndParse(prompt: string, args: RunLensArgs): DispatchOutcome {
-  const model = args.model ?? 'sonnet';
   const timeoutMs = args.timeoutMs ?? 600_000;
   if (prompt.length > MAX_PROMPT_CHARS) {
     return {
@@ -167,34 +179,13 @@ function dispatchAndParse(prompt: string, args: RunLensArgs): DispatchOutcome {
       reason: `digest too large for a single lens pass: ${prompt.length} chars > ${MAX_PROMPT_CHARS} limit — session skipped (split or raise the limit to process it)`,
     };
   }
-  // Pipe the prompt through stdin instead of argv to avoid ARG_MAX
-  // (macOS default ~262144 chars; big digests easily blow this). claude -p
-  // reads stdin when no positional prompt arg is provided.
-  //
-  // cwd is a throwaway temp dir, NOT the target project: `claude -p` writes a
-  // session transcript under the project derived from its cwd, and if that is
-  // the repo being analyzed, every lens call leaks a "You are a single-purpose
-  // observation lens…" transcript back into the scan window (self-pollution).
-  // Routing it through tmpdir() keeps those out of the analyzed project.
-  const result = spawnSync('claude', ['-p', '--model', model], {
-    input: prompt,
-    cwd: tmpdir(),
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: timeoutMs,
-  });
-  if (result.error) {
-    return { kind: 'failed', reason: `claude -p failed: ${result.error.message}` };
-  }
-  if (result.status !== 0) {
-    const stderr = (result.stderr ?? '').slice(0, 500);
-    return {
-      kind: 'failed',
-      reason: `claude -p exit ${result.status}: ${stderr || '(no stderr)'}`,
-    };
-  }
-  const stdout = result.stdout ?? '';
-  const cleaned = stripFencing(stdout);
+  const raw =
+    (args.engine ?? 'claude') === 'codex'
+      ? runCodex(prompt, timeoutMs)
+      : runClaude(prompt, args.model ?? 'sonnet', timeoutMs);
+  if (!raw.ok) return { kind: 'failed', reason: raw.reason };
+
+  const cleaned = stripFencing(raw.text);
   let parsed: ParsedLensJSON;
   try {
     parsed = JSON.parse(cleaned);
@@ -202,6 +193,87 @@ function dispatchAndParse(prompt: string, args: RunLensArgs): DispatchOutcome {
     return { kind: 'failed', reason: `JSON.parse: ${err instanceof Error ? err.message : String(err)}` };
   }
   return { kind: 'parsed', parsed };
+}
+
+/**
+ * `claude -p` engine. Prompt goes through stdin (not argv) to dodge ARG_MAX
+ * (~262k on macOS; big digests blow it). cwd is a throwaway temp dir, NOT the
+ * target project: `claude -p` writes a transcript under the project derived
+ * from its cwd, and if that were the analyzed repo every lens call would leak
+ * a "You are a single-purpose observation lens…" transcript back into the scan
+ * window (self-pollution). tmpdir() keeps those out.
+ */
+function runClaude(prompt: string, model: string, timeoutMs: number): RawOutcome {
+  const result = spawnSync('claude', ['-p', '--model', model], {
+    input: prompt,
+    cwd: tmpdir(),
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: timeoutMs,
+  });
+  if (result.error) return { ok: false, reason: `claude -p failed: ${result.error.message}` };
+  if (result.status !== 0) {
+    const stderr = (result.stderr ?? '').slice(0, 500);
+    return { ok: false, reason: `claude -p exit ${result.status}: ${stderr || '(no stderr)'}` };
+  }
+  return { ok: true, text: result.stdout ?? '' };
+}
+
+/**
+ * `codex exec` engine — typically faster than `claude -p`. Flags chosen for a
+ * headless, side-effect-free lens pass:
+ *   --ephemeral        don't persist a session to ~/.codex/sessions (so the
+ *                      lens run can't pollute a later Codex scan — Codex's
+ *                      native equivalent of the claude cwd→tmpdir trick)
+ *   --sandbox read-only + --skip-git-repo-check   the lens emits JSON, runs no
+ *                      commands; read-only in a throwaway dir keeps it safe and
+ *                      prompt-free
+ *   -o <file>          write ONLY the final agent message (our JSON) to a file,
+ *                      so we never have to parse it out of Codex's stdout logs
+ * Model is Codex's configured default (sonnet/opus don't apply here).
+ */
+function runCodex(prompt: string, timeoutMs: number): RawOutcome {
+  const dir = mkdtempSync(join(tmpdir(), 'cj-lens-'));
+  const outFile = join(dir, 'last-message.txt');
+  try {
+    const result = spawnSync(
+      'codex',
+      [
+        'exec',
+        '--ephemeral',
+        '--skip-git-repo-check',
+        '--sandbox',
+        'read-only',
+        '--color',
+        'never',
+        '-C',
+        dir,
+        '-o',
+        outFile,
+        '-', // read the prompt from stdin
+      ],
+      { input: prompt, cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: timeoutMs },
+    );
+    if (result.error) return { ok: false, reason: `codex exec failed: ${result.error.message}` };
+    if (result.status !== 0) {
+      const stderr = (result.stderr ?? '').slice(0, 500);
+      return { ok: false, reason: `codex exec exit ${result.status}: ${stderr || '(no stderr)'}` };
+    }
+    // Prefer the -o file (just the final message); fall back to stdout.
+    let text: string;
+    try {
+      text = readFileSync(outFile, 'utf8');
+    } catch {
+      text = result.stdout ?? '';
+    }
+    return { ok: true, text };
+  } finally {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* best-effort temp cleanup */
+    }
+  }
 }
 
 function finalize(parsed: ParsedLensJSON, args: RunLensArgs): RunLensResult {
