@@ -7,9 +7,50 @@ import { readFileSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 
-import { badgeLabel, categorize, parseTranscript, previewLine, type Journal } from '@code-journal/core';
+import {
+  badgeLabel,
+  categorize,
+  hostTimezone,
+  journalProjectTimezone,
+  parseTranscript,
+  previewLine,
+  readJournalSettings,
+  rebuildProjectJournal,
+  rollUpActivity,
+  setJournalProjectTimezone,
+  type Journal,
+} from '@code-journal/core';
 
+import { loadNarratives } from './narrate';
 import { overview, episode, setConfig } from './observations';
+
+/** The IANA zones offered in the Settings dropdown — the full platform list
+ *  when available (Node 18+), else a small fallback covering common offsets. */
+function supportedTimeZones(): string[] {
+  try {
+    const fn = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
+    const zones = fn?.('timeZone');
+    if (zones && zones.length) return zones;
+  } catch {
+    /* fall through to the curated list */
+  }
+  return [
+    'UTC',
+    'America/Los_Angeles',
+    'America/Denver',
+    'America/Chicago',
+    'America/New_York',
+    'America/Sao_Paulo',
+    'Europe/London',
+    'Europe/Paris',
+    'Europe/Moscow',
+    'Asia/Dubai',
+    'Asia/Kolkata',
+    'Asia/Shanghai',
+    'Asia/Tokyo',
+    'Australia/Sydney',
+  ];
+}
 
 /** Cap on transcript entries returned — huge sessions are skimmed, not dumped. */
 const TRANSCRIPT_CAP = 3000;
@@ -30,16 +71,23 @@ const MIME: Record<string, string> = {
  */
 export function startServer(journal: Journal, webDir: string, port: number): Promise<Server> {
   const root = resolve(webDir);
-  const payload = JSON.stringify(journal);
 
-  // Allowlist: only transcripts the journal already knows about may be read —
-  // a path → agent map, so an arbitrary file can't be fetched off disk.
-  const knownTranscripts = new Map<string, string>();
-  for (const project of journal.projects) {
-    for (const day of project.days) {
-      for (const s of day.sessions) knownTranscripts.set(s.path, s.agent);
+  // The journal is rebuilt in place when a project's timezone changes, so the
+  // serialized payload and the transcript allowlist are recomputed by reindex()
+  // rather than frozen at startup.
+  let payload = '';
+  let knownTranscripts = new Map<string, string>();
+  function reindex(): void {
+    payload = JSON.stringify(journal);
+    const known = new Map<string, string>();
+    for (const project of journal.projects) {
+      for (const day of project.days) {
+        for (const s of day.sessions) known.set(s.path, s.agent);
+      }
     }
+    knownTranscripts = known;
   }
+  reindex();
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
@@ -47,6 +95,63 @@ export function startServer(journal: Journal, webDir: string, port: number): Pro
     if (url.pathname === '/api/journal') {
       res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
       res.end(payload);
+      return;
+    }
+
+    // Journal settings — per-project timezone the day cards / heatmap reckon in.
+    if (url.pathname === '/api/journal/settings' && req.method === 'GET') {
+      const settings = readJournalSettings();
+      const projects = journal.projects.map((p) => ({
+        id: p.projectId,
+        displayName: p.displayName,
+        // '' means "auto" (host zone); the UI shows the resolved host zone.
+        timezone: settings[p.projectId]?.timezone ?? '',
+      }));
+      res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ projects, zones: supportedTimeZones(), host: hostTimezone() }));
+      return;
+    }
+    if (url.pathname === '/api/journal/settings' && req.method === 'POST') {
+      let raw = '';
+      req.on('data', (chunk) => {
+        raw += chunk;
+        if (raw.length > 64 * 1024) req.destroy();
+      });
+      req.on('end', () => {
+        try {
+          const { projectId, timezone } = JSON.parse(raw || '{}') as {
+            projectId?: string;
+            timezone?: string;
+          };
+          if (!projectId || !journal.projects.some((p) => p.projectId === projectId)) {
+            res.writeHead(404, { 'content-type': MIME['.json']! });
+            res.end(JSON.stringify({ error: 'unknown projectId' }));
+            return;
+          }
+          // Persist, then rebuild just this project in its new zone and swap it
+          // in — far cheaper than re-running the whole multi-repo discovery.
+          setJournalProjectTimezone(projectId, timezone ?? '');
+          const rebuilt = rebuildProjectJournal(projectId);
+          if (!rebuilt) {
+            res.writeHead(404, { 'content-type': MIME['.json']! });
+            res.end(JSON.stringify({ error: 'project no longer discoverable' }));
+            return;
+          }
+          journal.projects = journal.projects.map((p) =>
+            p.projectId === projectId ? rebuilt : p,
+          );
+          journal.activity = rollUpActivity(journal.projects);
+          loadNarratives(journal); // re-attach any narratives whose keys still match
+          reindex();
+          res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
+          res.end(
+            JSON.stringify({ ok: true, projectId, timezone: journalProjectTimezone(projectId) }),
+          );
+        } catch (err) {
+          res.writeHead(400, { 'content-type': MIME['.json']! });
+          res.end(JSON.stringify({ error: String(err instanceof Error ? err.message : err) }));
+        }
+      });
       return;
     }
     if (url.pathname === '/api/transcript') {

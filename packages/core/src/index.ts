@@ -17,4 +17,5 @@ export * from './sessions';
 export * from './transcript';
 export * from './journal';
 export * from './journal-fs';
+export * from './journal-settings';
 export * from './narrative';
