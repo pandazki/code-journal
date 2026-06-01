@@ -570,3 +570,168 @@ export function scanSessionCwds(): ScannedCwd[] {
 
   return out;
 }
+
+/**
+ * A stable identity for the git repository containing `cwd`, shared across all
+ * of the repo's worktrees: the directory that holds the common `.git`. Null
+ * when `cwd` isn't in a git repo.
+ *
+ * Use this — not `gitRootOf` — to group sessions into projects. `gitRootOf`
+ * returns each worktree's own top level, which would split one project into
+ * one entry per worktree.
+ */
+export function gitRepoKeyOf(cwd: string): string | null {
+  try {
+    const out = execFileSync(
+      'git',
+      ['-C', cwd, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    const common = out.trim();
+    if (!common) return null;
+    const dir = path.resolve(common);
+    // the common dir is "<repo>/.git"; the repo is its parent.
+    return path.basename(dir) === '.git' ? path.dirname(dir) : dir;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Discover every coding-agent session on disk in one pass — Claude Code, Codex,
+ * and Cowork — with no project scoping. The journal groups these by repository
+ * itself (see journal-fs). Deduped per (agent, id); newest first.
+ *
+ * Sessions whose cwd can't be determined are skipped — they can't be placed.
+ */
+export function discoverAllSessions(): SessionRef[] {
+  const out: SessionRef[] = [];
+  const seen = new Set<string>();
+  const add = (ref: SessionRef): void => {
+    const key = `${ref.agent}:${ref.id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(ref);
+  };
+
+  // ── Claude Code ──────────────────────────────────────────
+  const ccRoot = path.join(os.homedir(), '.claude', 'projects');
+  if (isDir(ccRoot)) {
+    let dirNames: string[] = [];
+    try {
+      dirNames = readdirSync(ccRoot).filter((d) => isDir(path.join(ccRoot, d)));
+    } catch {
+      /* ignore */
+    }
+    for (const d of dirNames) {
+      const dirPath = path.join(ccRoot, d);
+      let files: string[] = [];
+      try {
+        files = readdirSync(dirPath).filter((f) => f.endsWith('.jsonl'));
+      } catch {
+        continue;
+      }
+      for (const f of files) {
+        const fp = path.join(dirPath, f);
+        let st;
+        try {
+          st = statSync(fp);
+        } catch {
+          continue;
+        }
+        const probed = probeClaude(readHead(fp));
+        if (!probed.cwd) continue;
+        const fallbackId = f.replace(/\.jsonl$/, '');
+        const sidecarDir = path.join(dirPath, fallbackId);
+        add({
+          id: probed.id ?? fallbackId,
+          agent: 'claude-code',
+          path: fp,
+          cwd: path.resolve(probed.cwd),
+          sizeBytes: st.size,
+          mtimeMs: st.mtimeMs,
+          meta: probed.meta,
+          sidecarFiles: isDir(sidecarDir) ? walkSidecar(sidecarDir) : [],
+        });
+      }
+    }
+  }
+
+  // ── Codex ────────────────────────────────────────────────
+  const cxRoot = path.join(os.homedir(), '.codex', 'sessions');
+  if (isDir(cxRoot)) {
+    for (const fp of walkJsonl(cxRoot, 4)) {
+      let st;
+      try {
+        st = statSync(fp);
+      } catch {
+        continue;
+      }
+      const probed = probeCodex(readHead(fp));
+      if (!probed.id || !probed.cwd) continue;
+      add({
+        id: probed.id,
+        agent: 'codex',
+        path: fp,
+        cwd: path.resolve(probed.cwd),
+        sizeBytes: st.size,
+        mtimeMs: st.mtimeMs,
+        meta: probed.meta,
+        sidecarFiles: [],
+      });
+    }
+  }
+
+  // ── Claude Cowork ────────────────────────────────────────
+  const cwRoot = path.join(
+    os.homedir(),
+    'Library',
+    'Application Support',
+    'Claude',
+    'local-agent-mode-sessions',
+  );
+  if (isDir(cwRoot)) {
+    for (const metaPath of walkCoworkMetas(cwRoot, 4)) {
+      let m: any;
+      try {
+        m = JSON.parse(readFileSync(metaPath, 'utf8'));
+      } catch {
+        continue;
+      }
+      const folders: string[] = Array.isArray(m.userSelectedFolders)
+        ? m.userSelectedFolders.filter((x: unknown): x is string => typeof x === 'string')
+        : [];
+      if (!folders[0]) continue;
+      const auditPath = path.join(metaPath.replace(/\.json$/, ''), 'audit.jsonl');
+      let st;
+      try {
+        st = statSync(auditPath);
+      } catch {
+        continue;
+      }
+      const id =
+        typeof m.sessionId === 'string' && m.sessionId
+          ? m.sessionId
+          : path.basename(metaPath, '.json');
+      const meta: Record<string, string> = {};
+      setMeta(meta, 'model', m.model);
+      setMeta(meta, 'title', m.title);
+      if (typeof m.createdAt === 'number') {
+        setMeta(meta, 'startedAt', new Date(m.createdAt).toISOString());
+      }
+      add({
+        id,
+        agent: 'cowork',
+        path: auditPath,
+        cwd: path.resolve(folders[0]),
+        sizeBytes: st.size,
+        mtimeMs: st.mtimeMs,
+        meta,
+        sidecarFiles: [],
+      });
+    }
+  }
+
+  out.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return out;
+}
