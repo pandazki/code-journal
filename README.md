@@ -1,106 +1,99 @@
 # code-journal
 
-**Collect your AI coding-agent sessions and turn them into work reports.**
+**A local, typeset journal of your AI coding-agent sessions.**
 
-Your coding agents — Claude Code, Codex, Claude Cowork — leave a detailed
-transcript of every session on disk. code-journal discovers those transcripts,
-backs them up to S3-compatible storage on a schedule, and (via a Claude Code
-plugin) distills them into work-log entries and daily reports.
+Your coding agents — Claude Code, Codex, Claude Cowork — leave a transcript of
+every session on disk. code-journal reads those transcripts and turns them into
+a journal you can actually look back on: what you built, day by day, project by
+project. Everything runs locally; nothing is uploaded.
 
-## What's in here
+## Quick start
 
-| Path | What it is |
-|------|------------|
-| `packages/tui` | **`cj`** — a terminal board to discover, browse, and upload coding-agent sessions |
-| `packages/core` | session discovery + transcript parsing, shared by the rest |
-| `packages/observation` | **observation lens** — surfaces where *you* (not the agent) injected direction |
-| `packages/cli` | the work-log / report CLI that the Claude Code plugin drives |
-| `claude-plugin/` | Claude Code plugin — drafts work-log entries and daily reports |
-| `server/` | reference server — receives reports and uploaded sessions, serves a browse UI |
-
-## Quick start — the `cj` session collector
-
-`cj` discovers every coding-agent session for your projects, lets you browse the
-transcripts, and uploads them — incrementally — to an S3-compatible bucket,
-manually or on a cron schedule.
-
-### Build
-
-Requires Node ≥ 22. Release binaries are cross-compiled with
-[Bun](https://bun.sh) (a build-time tool only — the app runs on Node).
+Requires **Node ≥ 22**.
 
 ```sh
-npm install
-# target: darwin-arm64 · darwin-x64 · linux-x64 · linux-arm64
-npm run build:binaries -w @code-journal/tui darwin-arm64
+git clone https://github.com/pandazki/code-journal
+cd code-journal
+npm install        # installs dependencies and builds everything
+npm start          # build your journal and open it in the browser
 ```
 
-The binary lands at `packages/tui/dist/cj-<target>`. Put it on your `PATH` —
-it answers to **both** `cj` and `code-journal`, interchangeably:
+That's it. `npm start` reads your existing Claude Code / Codex / Cowork
+sessions and serves the journal at <http://127.0.0.1:4319/>. First run takes a
+few seconds while it reads your history; nothing leaves your machine.
+
+Options (pass after `--`):
 
 ```sh
-ln -sf "$PWD/packages/tui/dist/cj-darwin-arm64" /usr/local/bin/cj
-ln -sf "$PWD/packages/tui/dist/cj-darwin-arm64" /usr/local/bin/code-journal
+npm start -- --port 5000      # pick a port (default 4319)
+npm start -- --no-open        # don't auto-open the browser
+npm start -- --lan            # also serve on your LAN (see warning below)
 ```
 
-### Run
+> `--lan` (or `--host 0.0.0.0`) binds all interfaces so other machines can
+> reach it. The server is **unauthenticated** and serves your transcripts,
+> file paths, and audits — only do this on a trusted network.
+
+## What you get
+
+- **The almanac** (`/`) — an activity heatmap plus day cards. Click a day to
+  see its sessions, the files touched, commands run, and drill into any raw
+  transcript. Each project also has its own arc page.
+- **Settings** — the timezone each project reckons its days in. Auto-detects
+  your machine's zone; pin a specific IANA zone if you work across machines.
+- **Observation lens** (`/observe`) — where *you*, not the agent, set the
+  direction (optional; needs one scan first — see below).
+
+## Observation lens (optional)
+
+A mirror, not a judge: it surfaces the moments you steered the work, declined
+what was on the table, or injected a new concern. Every event cites verbatim
+transcript, and a grounding gate drops anything it can't reproduce against the
+source — low-signal sessions stay empty rather than inventing a story.
+
+It applies the lenses by shelling out to your installed coding-agent CLI
+(`claude` by default, or `codex`), so no API key is needed.
 
 ```sh
-cj                  # launch the board — first run walks you through setup
-cj sync             # headless incremental upload — the cron target
-cj cron install     # schedule the upload (default: every 4 hours)
-cj --help
+# scan a project's sessions (each session = a few model calls; start small)
+node packages/cli/dist/index.js sync --project <name> --limit 10
+
+# Codex engine — better for big sessions that are slow on Claude
+node packages/cli/dist/index.js sync --project <name> --limit 10 --engine codex
+
+# see counts / composed audits
+node packages/cli/dist/index.js status --project <name>
 ```
 
-First launch runs a short, resumable wizard: pick projects → configure the
-S3 target → schedule uploads. After that `cj` opens straight to the board.
-
-### Let an AI agent set it up
-
-[`packages/tui/AGENT-SETUP.md`](packages/tui/AGENT-SETUP.md) is a deterministic
-procedure an AI agent (e.g. Claude Code) can follow to build, configure, and
-schedule `cj` for you, end to end — no interactive UI needed.
-
-## The Claude Code plugin
-
-`claude-plugin/` is a [Claude Code](https://claude.com/claude-code) plugin that
-turns raw sessions into **work-log entries** and **daily reports**, with skills
-for capturing work and drafting reports on demand.
-
-```sh
-claude --plugin-dir /path/to/code-journal/claude-plugin
-```
-
-## The reference server
-
-`server/` receives uploaded reports and sessions and serves a browse UI — a
-faithful, line-numbered transcript viewer with subagent navigation. It's a
-reference implementation; point `cj` at any S3-compatible bucket instead, or
-adapt the server to your own backend.
-
-## The observation lens
-
-A separate product line: take the same raw sessions and surface **where you, not
-the agent, injected direction** — the moments you steered the work, declined what
-was on the table, or introduced a new concern. A mirror, not a judge: every event
-cites verbatim transcript evidence, a grounding gate drops anything it can't
-reproduce against the source, and empty sessions stay empty.
-
-```sh
-code-journal sync --project myproj      # detect direction-injection events
-code-journal compose --project myproj   # render an immutable audit episode
-code-journal status                      # signal-store counts + episode history
-```
-
-Then read them in the **web console** — run `code-journal`, click **Observation →**
-(or visit `/observe`). It renders the stance distribution, a strip of where in
-each session direction landed, and per-event verbatim cards — content the terminal
-can't show at this density — plus per-project settings.
+Then run `npm start`, click **Observation →** (or visit `/observe`) to read the
+audits: stance distribution, where in each session direction landed, and
+per-event verbatim cards.
 
 New here? [**Quickstart**](docs/observation-lens-quickstart.md)
 ([中文](docs/observation-lens-quickstart.zh.md)) · Full guide:
 [`docs/observation-lens.md`](docs/observation-lens.md)
 ([中文](docs/observation-lens.zh.md)).
+
+## Day & project narratives (optional)
+
+The journal is fully usable on metadata alone. To layer on written recaps,
+generated by your installed coding agent:
+
+```sh
+npm start -- narrate            # write day/project recaps, then reopen the journal
+```
+
+## Repo layout
+
+| Path | What it is |
+|------|------------|
+| `packages/app` | the local journal web app — `npm start` runs this |
+| `packages/core` | session discovery, transcript parsing, the journal model |
+| `packages/observation` | the observation lenses + grounding gate + audit composer |
+| `packages/cli` | the work-log / observation CLI (`sync`, `compose`, `status`, …) |
+| `claude-plugin/` | Claude Code plugin — drafts work-log entries and daily reports |
+| `packages/tui` | **`cj`** — older terminal collector that backs sessions up to S3 (see [`packages/tui/AGENT-SETUP.md`](packages/tui/AGENT-SETUP.md)) |
+| `server/` | reference server that receives uploaded reports/sessions |
 
 ## Develop
 
@@ -108,7 +101,6 @@ New here? [**Quickstart**](docs/observation-lens-quickstart.md)
 npm install
 npm run typecheck
 npm test
-npm run dev -w @code-journal/tui    # run cj from source (needs a TTY)
 ```
 
 ## License

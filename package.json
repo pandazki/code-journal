@@ -14,6 +14,7 @@
     "server"
   ],
   "scripts": {
+    "start": "node packages/app/dist/main.js",
     "build": "npm run build -w @code-journal/core && npm run build -w @code-journal/observation && npm run build -w @code-journal/cli && npm run build -w @code-journal/app && npm run sync-plugin-bin",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run build -w @code-journal/core && npm run build -w @code-journal/observation && npm run typecheck --workspaces --if-present",
