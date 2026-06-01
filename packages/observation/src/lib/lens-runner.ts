@@ -20,6 +20,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import {
@@ -146,14 +147,38 @@ type DispatchOutcome =
   | { kind: 'parsed'; parsed: ParsedLensJSON }
   | { kind: 'failed'; reason: string };
 
+/**
+ * Oversized-digest guard. A single `claude -p` pass has a finite context
+ * window; a multi-thousand-turn session digest overflows it and the subagent
+ * exits non-zero with no stderr (observed on a 2780-turn session). Above this
+ * many prompt chars we skip with an explicit, actionable reason instead of
+ * letting the user hit a cryptic `exit 1: (no stderr)`. ~600k chars leaves
+ * headroom for the lens spec + schema + the model's own JSON output.
+ * Chunked/windowed digestion of giant sessions is future work.
+ */
+const MAX_PROMPT_CHARS = 600_000;
+
 function dispatchAndParse(prompt: string, args: RunLensArgs): DispatchOutcome {
   const model = args.model ?? 'sonnet';
   const timeoutMs = args.timeoutMs ?? 600_000;
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    return {
+      kind: 'failed',
+      reason: `digest too large for a single lens pass: ${prompt.length} chars > ${MAX_PROMPT_CHARS} limit — session skipped (split or raise the limit to process it)`,
+    };
+  }
   // Pipe the prompt through stdin instead of argv to avoid ARG_MAX
   // (macOS default ~262144 chars; big digests easily blow this). claude -p
   // reads stdin when no positional prompt arg is provided.
+  //
+  // cwd is a throwaway temp dir, NOT the target project: `claude -p` writes a
+  // session transcript under the project derived from its cwd, and if that is
+  // the repo being analyzed, every lens call leaks a "You are a single-purpose
+  // observation lens…" transcript back into the scan window (self-pollution).
+  // Routing it through tmpdir() keeps those out of the analyzed project.
   const result = spawnSync('claude', ['-p', '--model', model], {
     input: prompt,
+    cwd: tmpdir(),
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     timeout: timeoutMs,

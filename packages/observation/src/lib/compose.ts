@@ -54,6 +54,13 @@ export interface ComposeArgs {
   state: ProjectState;
   cronAt?: string;
   dryRun?: boolean;
+  /**
+   * Recompose even when no new events have landed since the last episode.
+   * Off by default so a repeat `compose` — e.g. the rerun script's trailing
+   * compose after sync already auto-composed at threshold — cannot emit a
+   * byte-identical duplicate episode.
+   */
+  force?: boolean;
 }
 
 export type ComposeResult =
@@ -63,16 +70,36 @@ export type ComposeResult =
       markdown: string;
       paths: { markdown: string; metadata: string };
     }
-  | { ok: false; reason: string };
+  | { ok: false; reason: string; skipped?: boolean };
 
 export function composeAudit(args: ComposeArgs): ComposeResult {
-  const { state } = args;
+  const { state, force = false } = args;
   const strict = readSignals(state.project_id, 'strict-negative-space');
   const deferral = readSignals(state.project_id, 'anchored-deferral');
   const pivot = readSignals(state.project_id, 'user-initiated-pivot');
 
   if (strict.length === 0 && deferral.length === 0 && pivot.length === 0) {
     return { ok: false, reason: 'no events in signal store; sync first' };
+  }
+
+  // No-new-events guard. composeAudit re-audits the ENTIRE append-only store
+  // on every call, so without this a repeat compose emits a verbatim duplicate
+  // episode (observed: Episodes 3 and 4 were identical — sync auto-composed at
+  // threshold, then the rerun script's trailing compose ran over the same
+  // store). Skip unless forced when nothing new has landed since the last
+  // episode. dryRun ignores the guard so a preview always renders.
+  if (
+    !force &&
+    !args.dryRun &&
+    state.episodes.length > 0 &&
+    state.new_events_since_last_compose === 0
+  ) {
+    const last = state.episodes[state.episodes.length - 1];
+    return {
+      ok: false,
+      skipped: true,
+      reason: `no new events since Episode ${last?.episode} — nothing to compose (use --force to recompose)`,
+    };
   }
 
   // Build turn maps per session from cached digests, for M2 (latency) and M6 (position).

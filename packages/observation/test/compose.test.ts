@@ -287,14 +287,43 @@ describe('compose · end-to-end with synthetic events', () => {
     assert.equal(r1.ok, true);
     if (!r1.ok) return;
 
-    // Second compose
+    // Second compose. Simulate sync having appended a new event: bump the
+    // counter so the no-new-events guard lets the recompose through (sync does
+    // this in the real flow; this test drives compose directly).
     state = readProjectState(PID, 'Sequence');
     const ev2 = mkEvent({ turn_anchor: 'T20' });
     appendSignals(PID, ev2.lens_id, [ev2]);
+    state.new_events_since_last_compose = 1;
     let r2 = composeAudit({ state });
     assert.equal(r2.ok, true);
     if (!r2.ok) return;
     assert.ok(r2.markdown.includes('(none surfaced'));
+  });
+
+  it('skips a duplicate recompose when no new events since last episode', () => {
+    seedDigest([{ id: 10, role: 'assistant', ts: '2026-05-28T10:00:00Z' }]);
+    let state = readProjectState(PID, 'Dup');
+    const ev = mkEvent({ turn_anchor: 'T10' });
+    appendSignals(PID, ev.lens_id, [ev]);
+    state.new_events_since_last_compose = 1;
+    const r1 = composeAudit({ state });
+    assert.equal(r1.ok, true);
+
+    // Re-read state (counter now 0, one episode on record) and compose again
+    // with no new events — must skip rather than emit a duplicate episode.
+    state = readProjectState(PID, 'Dup');
+    const r2 = composeAudit({ state });
+    assert.equal(r2.ok, false);
+    if (!r2.ok) {
+      assert.equal(r2.skipped, true);
+      assert.ok(r2.reason.includes('no new events'));
+    }
+    assert.equal(readProjectState(PID, 'Dup').episodes.length, 1, 'no second episode written');
+
+    // --force overrides the guard and composes Episode 2.
+    const r3 = composeAudit({ state, force: true });
+    assert.equal(r3.ok, true);
+    if (r3.ok) assert.equal(r3.episode.episode, 2);
   });
 
   it('rendered file path matches episode metadata audit_path', () => {
