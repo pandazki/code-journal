@@ -34,7 +34,13 @@ import {
   serializeProject,
 } from './models';
 import { DEFAULT_CATCHUP_LOOKBACK_DAYS } from './defaults';
-import { isoUtcNow, splitIsoComponents } from './datetime';
+import {
+  dateInTimezone,
+  hostTimezone,
+  isoInTimezone,
+  isoUtcNow,
+  splitIsoComponents,
+} from './datetime';
 
 export { CONFIG_JSON } from './paths';
 
@@ -425,11 +431,13 @@ export function deleteProject(key: ProjectKey): DeleteProjectSummary {
 export interface DefaultProjectOptions {
   displayName?: string;
   reportLanguage?: string;
+  /** IANA zone to reckon days in; defaults to the auto-detected host zone. */
+  timezone?: string;
 }
 
 export function defaultProject(key: ProjectKey, opts: DefaultProjectOptions = {}): Project {
   const projectId = key.projectId;
-  const { displayName = '', reportLanguage = 'en' } = opts;
+  const { displayName = '', reportLanguage = 'en', timezone = hostTimezone() } = opts;
 
   return {
     project_id: projectId,
@@ -441,8 +449,23 @@ export function defaultProject(key: ProjectKey, opts: DefaultProjectOptions = {}
       _extra: {},
     },
     schedule: { mode: 'manual', time: null, weekday: null, _extra: {} },
+    timezone,
     _extra: {},
   };
+}
+
+/**
+ * The IANA timezone the project at `cwd` reckons calendar days in — the
+ * config's pinned `timezone`, or the auto-detected host zone when unset or
+ * the cwd isn't a registered project. The single source of truth threaded
+ * through entry filing, query windows, and report staleness.
+ */
+export function projectTimezone(cwd?: string): string {
+  try {
+    return loadProject(cwd).timezone || hostTimezone();
+  } catch {
+    return hostTimezone();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -554,7 +577,11 @@ export function appendEntryFromText(
     throw new Error(`unknown kind: ${JSON.stringify(kind)} (not in preset or custom_kinds).`);
   }
 
-  const now = isoUtcNow();
+  // Stamp `now` in the project's timezone so the date sliced off `created_at`
+  // (which is how the entry is filed and later windowed — see
+  // splitIsoComponents below and queryEntries) is the project-tz calendar day,
+  // not UTC. A manually-supplied created_at is honored verbatim.
+  const now = isoInTimezone(new Date(), project.timezone || hostTimezone());
   fm.project_id = (fm.project_id as string) || project.project_id;
   fm.created_at = (fm.created_at as string) || now;
   fm.updated_at = (fm.updated_at as string) || now;
@@ -926,8 +953,8 @@ function assertYmd(value: string): void {
   }
 }
 
-function parseWindow(window: string): [string, string] {
-  const today = todayUtcDate();
+function parseWindow(window: string, tz: string): [string, string] {
+  const today = dateInTimezone(new Date(), tz);
   if (window === 'today') return [today, today];
   if (window === 'yesterday') {
     const y = shiftDate(today, -1);
@@ -941,12 +968,6 @@ function parseWindow(window: string): [string, string] {
   }
   assertYmd(window);
   return [window, window];
-}
-
-function todayUtcDate(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
 export function shiftDate(yyyymmdd: string, deltaDays: number): string {
@@ -976,7 +997,7 @@ export function queryEntries(opts: QueryOptions = {}): JsonObject[] {
   const projRoot = projectRoot(cwd);
   let rows: JsonObject[] = [...readIndex(cwd)];
   if (window) {
-    const [start, end] = parseWindow(window);
+    const [start, end] = parseWindow(window, projectTimezone(cwd));
     rows = rows.filter((rec) => {
       try {
         const startTs = (rec.work_started_at as string) || (rec.created_at as string);

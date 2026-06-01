@@ -251,6 +251,14 @@ export interface Project {
    */
   report: ReportConfig;
   schedule: ScheduleTrigger;
+  /**
+   * IANA timezone this project reckons calendar days in — entry filing date,
+   * "today"/"yesterday" query windows, and report staleness all resolve
+   * through it. Empty string means "use the host's auto-detected zone"
+   * (`init` writes the detected zone here so it's explicit and stable even if
+   * the project is later opened from a machine in a different zone).
+   */
+  timezone: string;
   _extra: JsonObject;
 }
 
@@ -265,6 +273,7 @@ export function parseProject(d: JsonObject): Project {
     'schema_',
     'report',
     'schedule',
+    'timezone',
   ]);
   const extra: JsonObject = {};
   for (const [k, v] of Object.entries(d)) {
@@ -283,6 +292,7 @@ export function parseProject(d: JsonObject): Project {
     schema_: parseSchemaExtensions((schemaDict as JsonObject) ?? null),
     report,
     schedule: parseScheduleTrigger((d.schedule as JsonObject) ?? null),
+    timezone: typeof d.timezone === 'string' ? d.timezone : '',
     _extra: extra,
   };
 }
@@ -295,6 +305,9 @@ export function serializeProject(p: Project): JsonObject {
     report: serializeReportConfig(p.report),
   };
   out.schedule = serializeScheduleTrigger(p.schedule);
+  // Only persist a pinned zone; an empty string is the "use host" default and
+  // stays out of the file to avoid churn on projects that never set one.
+  if (p.timezone) out.timezone = p.timezone;
   for (const [k, v] of Object.entries(p._extra)) out[k] = v;
   return out;
 }

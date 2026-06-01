@@ -50,7 +50,7 @@ export function isoLocalNow(d: Date = new Date()): string {
  * Today's date string in the host's local timezone — `YYYY-MM-DD`.
  *
  * Used by synth-context to compute the discovery window in local-tz natural
- * days. UTC-based date math (todayUtcDate in storage.ts) would surprise a
+ * days. UTC-based date math would surprise a
  * user in UTC+8 at 8am: they'd see "yesterday" because UTC is still on the
  * prior calendar day. Local-tz dates match how the user thinks about
  * "today's work."
@@ -58,6 +58,99 @@ export function isoLocalNow(d: Date = new Date()): string {
 export function todayLocalDate(d: Date = new Date()): string {
   const pad = (n: number, w = 2) => String(n).padStart(w, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+// ---------------------------------------------------------------------------
+// Timezone-aware reckoning (configurable, IANA zones)
+//
+// The host-local helpers above read the *process* timezone via Date getters.
+// These let a project pin which timezone its days are reckoned in (entry
+// filing date, "today" boundaries, report staleness) independent of where the
+// process happens to run — defaulting to the auto-detected host zone. All of
+// them route through `Intl` so any IANA zone (e.g. "Asia/Shanghai") works.
+// ---------------------------------------------------------------------------
+
+/** The host's IANA timezone (e.g. "Asia/Shanghai"); "UTC" if undetectable. */
+export function hostTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+/** Wall-clock parts of instant `d` as seen in IANA zone `tz`. */
+function partsInTimezone(
+  d: Date,
+  tz: string,
+): { y: number; mo: number; da: number; h: number; mi: number; s: number } {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hourCycle: 'h23', // 00–23; avoids the "24:00" quirk of hour12:false
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const m: Record<string, string> = {};
+  for (const p of fmt.formatToParts(d)) if (p.type !== 'literal') m[p.type] = p.value;
+  return {
+    y: Number(m.year),
+    mo: Number(m.month),
+    da: Number(m.day),
+    h: Number(m.hour),
+    mi: Number(m.minute),
+    s: Number(m.second),
+  };
+}
+
+/** `tz`'s UTC offset in minutes (east positive) at instant `d`. */
+function tzOffsetMinutes(d: Date, tz: string): number {
+  const p = partsInTimezone(d, tz);
+  const asIfUtc = Date.UTC(p.y, p.mo - 1, p.da, p.h, p.mi, p.s);
+  // asIfUtc reads the local wall-clock as though it were UTC; its distance
+  // from the real instant is the zone's offset. Rounded to the minute (all
+  // real zones are whole-minute; `d`'s sub-second never crosses a boundary).
+  return Math.round((asIfUtc - d.getTime()) / 60_000);
+}
+
+/**
+ * `YYYY-MM-DD` for instant `d` in zone `tz` (default: host). The single
+ * source of truth for "what day did this happen on" once a project pins a
+ * timezone.
+ */
+export function dateInTimezone(d: Date = new Date(), tz: string = hostTimezone()): string {
+  const p = partsInTimezone(d, tz);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${p.y}-${pad(p.mo)}-${pad(p.da)}`;
+}
+
+/** `tz`'s UTC offset at instant `d` in ISO form (`+08:00` / `-05:00`). */
+export function tzOffsetIso(d: Date = new Date(), tz: string = hostTimezone()): string {
+  const off = tzOffsetMinutes(d, tz);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const sign = off >= 0 ? '+' : '-';
+  const a = Math.abs(off);
+  return `${sign}${pad(Math.floor(a / 60))}:${pad(a % 60)}`;
+}
+
+/**
+ * Wall-clock ISO 8601 for instant `d` in zone `tz` (default: host) — e.g.
+ * `2026-06-01T03:15:00+08:00`. Used for entry `created_at` so the literal
+ * date sliced off it (how entries are filed) is the project-timezone day.
+ */
+export function isoInTimezone(d: Date = new Date(), tz: string = hostTimezone()): string {
+  const p = partsInTimezone(d, tz);
+  const off = tzOffsetMinutes(d, tz);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const sign = off >= 0 ? '+' : '-';
+  const a = Math.abs(off);
+  return (
+    `${p.y}-${pad(p.mo)}-${pad(p.da)}T${pad(p.h)}:${pad(p.mi)}:${pad(p.s)}` +
+    `${sign}${pad(Math.floor(a / 60))}:${pad(a % 60)}`
+  );
 }
 
 /**

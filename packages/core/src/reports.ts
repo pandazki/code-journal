@@ -8,9 +8,15 @@ import * as path from 'node:path';
 
 import { projectRoot } from './paths';
 import { DEFAULT_CATCHUP_LOOKBACK_DAYS } from './defaults';
-import { isoLocalNow } from './datetime';
+import { dateInTimezone, isoInTimezone } from './datetime';
 import { ReportMeta, serializeReportMeta } from './models';
-import { atomicWriteFileSync, queryEntries, shiftDate, splitFrontmatter } from './storage';
+import {
+  atomicWriteFileSync,
+  projectTimezone,
+  queryEntries,
+  shiftDate,
+  splitFrontmatter,
+} from './storage';
 
 export function reportPath(window: string, fmt: string, cwd?: string): string {
   return path.join(projectRoot(cwd), 'reports', `${window}-${fmt}.md`);
@@ -81,7 +87,9 @@ export function writeReport(opts: WriteReportOptions): string {
   // would silently make it ineligible for next-day catch-up regeneration).
   // The CLI's cmdWriteReport also auto-fills earlier; this is the safety
   // net for any future caller bypassing the CLI.
-  const metaWithGen: ReportMeta = meta.generated_at ? meta : { ...meta, generated_at: isoLocalNow() };
+  const metaWithGen: ReportMeta = meta.generated_at
+    ? meta
+    : { ...meta, generated_at: isoInTimezone(new Date(), projectTimezone(cwd)) };
   const fm = serializeReportMeta(metaWithGen);
   const body = `---\n${JSON.stringify(fm, null, 2)}\n---\n\n${content.replace(/^\s+/, '')}`;
   atomicWriteFileSync(p, body);
@@ -102,13 +110,13 @@ export function writeReport(opts: WriteReportOptions): string {
  */
 export function listPendingDaily(opts: { lookbackDays?: number; cwd?: string } = {}): string[] {
   const { lookbackDays = DEFAULT_CATCHUP_LOOKBACK_DAYS, cwd } = opts;
-  // Use the HOST'S LOCAL TIMEZONE for "today" — entries and reports are
-  // dated by local wall-clock (see work-log-synthesizer step 1 and
+  // Reckon "today" in the PROJECT'S timezone — the same zone entries are
+  // filed under and reports are dated by (see `appendEntryFromText` and
   // `isReportStale`). A UTC-based boundary would silently drop yesterday's
   // report from the pending list near midnight in non-UTC zones (e.g.
   // UTC+8 at 09:00 local, UTC's "today" is still yesterday → endBound is
   // the day before that → real yesterday never gets drafted).
-  const today = todayLocalDateString();
+  const today = dateInTimezone(new Date(), projectTimezone(cwd));
   const endBound = shiftDate(today, -1);
   const capFloor = shiftDate(today, -lookbackDays);
   const reportsDir = path.join(projectRoot(cwd), 'reports');
@@ -138,10 +146,4 @@ export function listPendingDaily(opts: { lookbackDays?: number; cwd?: string } =
     cur = shiftDate(cur, 1);
   }
   return out;
-}
-
-function todayLocalDateString(): string {
-  // Slice the YYYY-MM-DD prefix off the host-local ISO string. Avoids
-  // pulling Date getters individually and avoids any UTC conversion.
-  return isoLocalNow().slice(0, 10);
 }

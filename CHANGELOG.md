@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Per-project timezone** — each project reckons calendar days in one timezone,
+  set once and used everywhere: entry filing date, `today` / `yesterday` query
+  windows, catch-up's pending-report list, and report staleness. `init`
+  auto-detects the host's IANA zone (e.g. `Asia/Shanghai`) and records it in
+  `config.json`; pin a different one with `init --timezone <IANA>` (handy for a
+  project worked from machines in different zones, or a UTC server). This
+  replaces a latent split where entries were filed by **UTC** date while
+  "today" was computed in **local** time — near midnight in non-UTC zones the
+  two disagreed, so a day's work could land under the wrong date or a finished
+  day never showed up for drafting.
+
 ## 0.2.0 — observation lens
 
 The observation lens ships: take the same raw coding-agent sessions and surface
