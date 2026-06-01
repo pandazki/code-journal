@@ -34,6 +34,7 @@ import {
   LENS_IDS,
   type ProjectState,
   type LensId,
+  type LensEngine,
   type AgentId,
   DIR_MODE,
   FILE_MODE,
@@ -59,12 +60,20 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
       'scan-only': { type: 'boolean', default: false },
       limit: { type: 'string' },
       verbose: { type: 'boolean', default: false },
+      // Which coding-agent CLI applies the lenses: 'claude' (default) or
+      // 'codex' (typically faster). Codex ignores the per-project model.
+      engine: { type: 'string' },
     },
     allowPositionals: false,
   });
   const projectFilter = ((values.project as string[]) ?? []).map((s) => s.toLowerCase());
   const scanOnly = Boolean(values['scan-only']);
   const verbose = Boolean(values.verbose);
+  const engine = (values.engine as string | undefined) ?? 'claude';
+  if (engine !== 'claude' && engine !== 'codex') {
+    process.stderr.write(`sync: invalid --engine '${engine}' (use 'claude' or 'codex')\n`);
+    return 2;
+  }
   const limit = values.limit != null ? Math.max(1, Number(values.limit)) : Infinity;
   if (values.limit != null && !Number.isFinite(Number(values.limit))) {
     process.stderr.write(`sync: invalid --limit '${values.limit}'\n`);
@@ -124,7 +133,7 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
 
     for (const session of newSessions) {
       try {
-        const result = scanOneSession(projectId, session, state, verbose);
+        const result = scanOneSession(projectId, session, state, verbose, engine);
         agentsTouched.add(session.agent as AgentId);
         projectEventsAppended += result.appended;
         total.scanned += 1;
@@ -182,7 +191,7 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
   }
 
   process.stdout.write(
-    `sync: ${total.scanned} sessions scanned, ${total.eventsAppended} events appended, ${total.composed} audits composed, ${total.failed} failures\n`,
+    `sync [${engine}]: ${total.scanned} sessions scanned, ${total.eventsAppended} events appended, ${total.composed} audits composed, ${total.failed} failures\n`,
   );
   return total.failed > 0 ? 1 : 0;
 }
@@ -196,6 +205,7 @@ function scanOneSession(
   session: SessionRef,
   state: ProjectState,
   verbose: boolean,
+  engine: LensEngine,
 ): ScanResult {
   // Step 1: digest the session
   const digestResult =
@@ -277,6 +287,7 @@ function scanOneSession(
       projectId,
       sessionId: session.id,
       agent: session.agent as AgentId,
+      engine,
       model: state.config.model,
       analysisLanguage: languagePromptName(state.config.analysis_language),
     });
