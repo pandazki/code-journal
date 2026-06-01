@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { readIndex } from '@code-journal/core';
+import { isoLocalNow, readIndex, todayLocalDate } from '@code-journal/core';
 
 import { TmpProject, initArgv, makeTmpProject, runCli } from './helper';
 
@@ -57,11 +57,17 @@ test('full §11 acceptance e2e (CLI surface)', async () => {
   const idx = readIndex() as Array<Record<string, unknown>>;
   assert.equal(idx.length, 3);
 
-  // Backdate first entry by 2 days.
+  // Backdate first entry by 2 days. Entries are dated by the LITERAL date in
+  // their created_at string (storage slices `YYYY-MM-DD` off it), while
+  // `listPendingDaily` computes "today" in the host's LOCAL timezone. So both
+  // the backdated created_at and these expected dates must be local-tz — a
+  // UTC `toISOString()` here would mismatch the impl near midnight in non-UTC
+  // zones (e.g. UTC+8 early morning, where the UTC date trails local by a day)
+  // and spuriously fail the "today is never pending" assertion below.
   const now = new Date();
   const backdated = new Date(now.getTime() - 2 * 86400_000);
-  const backdatedIso = backdated.toISOString().slice(0, 10);
-  const todayIso = now.toISOString().slice(0, 10);
+  const backdatedIso = todayLocalDate(backdated);
+  const todayIso = todayLocalDate(now);
 
   const rec = idx[0]!;
   const oldPath = path.join(projRoot, rec.file_path as string);
@@ -69,15 +75,15 @@ test('full §11 acceptance e2e (CLI surface)', async () => {
   const firstIdx = text.indexOf('---');
   const secondIdx = text.indexOf('---', firstIdx + 3);
   const fmObj = JSON.parse(text.slice(firstIdx + 3, secondIdx).trim()) as Record<string, unknown>;
-  fmObj.created_at = backdated.toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  fmObj.created_at = isoLocalNow(backdated);
   const newText = `---\n${JSON.stringify(fmObj, null, 2)}\n---${text.slice(secondIdx + 3)}`;
   const pad = (n: number) => String(n).padStart(2, '0');
-  const yyyymm = `${backdated.getUTCFullYear()}-${pad(backdated.getUTCMonth() + 1)}`;
+  const yyyymm = `${backdated.getFullYear()}-${pad(backdated.getMonth() + 1)}`;
   const newDir = path.join(projRoot, 'log', 'entries', yyyymm);
   fs.mkdirSync(newDir, { recursive: true });
-  const tsSafe = `${backdated.getUTCFullYear()}-${pad(backdated.getUTCMonth() + 1)}-${pad(
-    backdated.getUTCDate(),
-  )}T${pad(backdated.getUTCHours())}-${pad(backdated.getUTCMinutes())}-${pad(backdated.getUTCSeconds())}`;
+  const tsSafe = `${backdated.getFullYear()}-${pad(backdated.getMonth() + 1)}-${pad(
+    backdated.getDate(),
+  )}T${pad(backdated.getHours())}-${pad(backdated.getMinutes())}-${pad(backdated.getSeconds())}`;
   const newName = `${tsSafe}_${rec.id as string}.md`;
   const newPath = path.join(newDir, newName);
   fs.unlinkSync(oldPath);

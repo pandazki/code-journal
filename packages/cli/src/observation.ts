@@ -219,6 +219,24 @@ function scanOneSession(
     /* ignore */
   }
 
+  // Skip the observation runner's own `claude -p` subagent transcripts. Before
+  // the cwd→tmpdir fix in lens-runner, every lens call wrote a "You are a
+  // single-purpose observation lens…" session into the analyzed project, which
+  // then got re-scanned as if it were a real user session (self-pollution).
+  // Returning early marks it scanned (so it won't be retried) without spending
+  // any lens calls. New runs no longer leak these; this catches the backlog.
+  const firstUserText = digestResult.turns.find(
+    (t) => t.role === 'user' && t.kind === 'text' && t.text,
+  )?.text as string | undefined;
+  if (firstUserText?.startsWith('You are a single-purpose observation lens')) {
+    if (verbose) {
+      process.stdout.write(
+        `  · ${session.id.slice(0, 8)} skipped (observation lens subagent transcript)\n`,
+      );
+    }
+    return { appended: 0 };
+  }
+
   // Step 1.5: auto-detect the analysis language from the USER's own turns only
   // (type === 'user', text turns) — never the AI's output or tool noise. Cheap
   // char-script heuristic, no model call. Runs only while auto; pinning a
@@ -303,6 +321,7 @@ export async function cmdObservationCompose(rest: string[], _ctx: ObsCliContext)
     options: {
       project: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
+      force: { type: 'boolean', default: false },
     },
     allowPositionals: false,
   });
@@ -312,6 +331,7 @@ export async function cmdObservationCompose(rest: string[], _ctx: ObsCliContext)
     return 2;
   }
   const dryRun = Boolean(values['dry-run']);
+  const force = Boolean(values.force);
 
   const resolved = resolveProjectFromArg(projectArg);
   if (!resolved) {
@@ -320,8 +340,15 @@ export async function cmdObservationCompose(rest: string[], _ctx: ObsCliContext)
   }
 
   const state = readProjectState(resolved.id, resolved.displayName);
-  const result = composeAudit({ state, dryRun });
+  const result = composeAudit({ state, dryRun, force });
   if (!result.ok) {
+    // A deliberate no-op (nothing new to compose) is a clean exit, not an
+    // error — keeps the rerun script's trailing compose quiet after sync
+    // already auto-composed.
+    if (result.skipped) {
+      process.stdout.write(`compose: ${result.reason}\n`);
+      return 0;
+    }
     process.stderr.write(`compose: ${result.reason}\n`);
     return 1;
   }

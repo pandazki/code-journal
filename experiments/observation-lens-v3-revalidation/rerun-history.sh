@@ -18,6 +18,7 @@
 #
 #     -n LIMIT     scan at most LIMIT most-recent sessions per project
 #                  (default: 20). Each session = 3 `claude -p` calls.
+#     --all        no limit — scan EVERY new session per project (full rerun).
 #     --no-reset   don't back up / wipe; sync + compose on top of existing state.
 #     --redetect   on reset, re-enable language auto-detection (overrides a pin).
 #     project ...  project ids (dir names under ~/.code-journal/observations/).
@@ -41,6 +42,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     -n|--limit) LIMIT="$2"; shift 2 ;;
     -n*)        LIMIT="${1#-n}"; shift ;;          # allow -n5
+    --all)      LIMIT=""; shift ;;                 # no limit — full rerun
     --no-reset) RESET=0; shift ;;
     --redetect) REDETECT=1; shift ;;
     -h|--help)  sed -n '2,30p' "$0"; exit 0 ;;
@@ -53,6 +55,7 @@ if [ -n "$LIMIT" ] && ! [[ "$LIMIT" =~ ^[0-9]+$ ]]; then
   echo "error: -n LIMIT must be a positive integer (got '$LIMIT')" >&2
   exit 2
 fi
+# Empty LIMIT (via --all) means no --limit flag → CLI scans every new session.
 
 # Default project: code-journal itself.
 if [ "${#PROJECTS[@]}" -eq 0 ]; then
