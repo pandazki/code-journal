@@ -1,7 +1,9 @@
 /**
  * The local journal server — serves the SPA from `webDir` and the journal
- * itself at GET /api/journal. Loopback only, unauthenticated: this is your
- * machine talking to your own browser, nothing leaves it.
+ * itself at GET /api/journal. Unauthenticated; binds loopback by default (your
+ * machine talking to your own browser). The bind host is overridable via
+ * main.ts's `--host`/`--lan` for LAN access — opt-in, with a startup warning,
+ * since there is no auth.
  */
 import { readFileSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -66,10 +68,17 @@ const MIME: Record<string, string> = {
 };
 
 /**
- * Start the server on `port` (0 picks an ephemeral one). The journal is
- * serialized once — it doesn't change over a run — so /api/journal is instant.
+ * Start the server on `port` (0 picks an ephemeral one), bound to `host`
+ * (default loopback — see main.ts for the `--host`/`--lan` opt-in and its
+ * security warning). The journal is serialized once — it doesn't change over a
+ * run — so /api/journal is instant.
  */
-export function startServer(journal: Journal, webDir: string, port: number): Promise<Server> {
+export function startServer(
+  journal: Journal,
+  webDir: string,
+  port: number,
+  host = '127.0.0.1',
+): Promise<Server> {
   const root = resolve(webDir);
 
   // The journal is rebuilt in place when a project's timezone changes, so the
@@ -266,7 +275,7 @@ export function startServer(journal: Journal, webDir: string, port: number): Pro
 
   return new Promise((resolveListen, reject) => {
     server.once('error', reject);
-    server.listen(port, '127.0.0.1', () => {
+    server.listen(port, host, () => {
       server.off('error', reject);
       resolveListen(server);
     });
