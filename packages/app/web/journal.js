@@ -540,6 +540,78 @@
     view.focus({ preventScroll: true });
   }
 
+  // --- settings ------------------------------------------------------------
+  // Per-project timezone — the zone a project's day cards and activity heatmap
+  // are reckoned in. Changing it rebuilds that project on the server (days can
+  // shift across midnight), so on save we re-fetch the whole journal.
+  function renderSettings() {
+    mount([crumb([['#/', 'Journal']], 'Settings'),
+      el('div', { class: 'state' }, el('p', { class: 'state-line' }, 'Loading settings…'))]);
+    fetch('/api/journal/settings')
+      .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then((data) => {
+        const section = el('section', { class: 'settings' });
+        section.append(el('h1', {}, 'Settings'));
+        section.append(el('p', { class: 'settings-intro' },
+          'The timezone a project’s day cards and heatmap are reckoned in. ' +
+          'Auto follows this machine’s zone (' + (data.host || 'host') + '). ' +
+          'Stored in ~/.code-journal/journal-settings.json — nothing leaves this machine.'));
+
+        const zones = data.zones || [];
+        (data.projects || []).forEach((p) => {
+          const sel = el('select', { class: 'tz-select' });
+          const auto = el('option', { value: '' }, 'Auto (host: ' + (data.host || '—') + ')');
+          if (!p.timezone) auto.selected = true;
+          sel.append(auto);
+          zones.forEach((z) => {
+            const o = el('option', { value: z }, z);
+            if (p.timezone === z) o.selected = true;
+            sel.append(o);
+          });
+          const status = el('span', { class: 'tz-status' });
+          sel.addEventListener('change', () => {
+            status.textContent = 'saving…';
+            status.className = 'tz-status';
+            postSetting(p.id, sel.value, status);
+          });
+          section.append(el('div', { class: 'settings-row' },
+            el('div', { class: 'settings-row-name' }, p.displayName),
+            el('div', { class: 'settings-row-control' }, sel, status)));
+        });
+        if (!(data.projects || []).length) {
+          section.append(el('p', { class: 'state-sub' }, 'No projects discovered yet.'));
+        }
+        mount([crumb([['#/', 'Journal']], 'Settings'), reveal(section, 0)]);
+      })
+      .catch((err) => mount([crumb([['#/', 'Journal']], 'Settings'),
+        el('div', { class: 'state' },
+          el('p', { class: 'state-line' }, 'Could not load settings.'),
+          el('p', { class: 'state-sub' }, String((err && err.message) || err)))]));
+  }
+
+  function postSetting(projectId, timezone, status) {
+    fetch('/api/journal/settings', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId, timezone }),
+    })
+      .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
+      .then(({ ok, b }) => {
+        if (!ok) throw new Error((b && b.error) || 'save failed');
+        status.textContent = 'saved ✓';
+        status.className = 'tz-status ok';
+        // The project was rebuilt server-side — pull the fresh journal so day
+        // buckets reflect the new zone, then re-render this view.
+        return fetch('/api/journal').then((r) => r.json()).then((journal) => {
+          J = journal;
+          projById = new Map(journal.projects.map((p) => [p.projectId, p]));
+          dayMapByProj = new Map(journal.projects.map((p) => [p.projectId, new Map(p.days.map((d) => [d.date, d]))]));
+          activityByDate = new Map(journal.activity.map((a) => [a.date, a]));
+        });
+      })
+      .catch((err) => { status.textContent = 'error: ' + ((err && err.message) || err); status.className = 'tz-status err'; });
+  }
+
   // --- routing -------------------------------------------------------------
   function go(hash) { location.hash = hash; }
 
@@ -549,6 +621,7 @@
     if (parts[0] === 'project' && parts[1]) renderProject(parts[1]);
     else if (parts[0] === 'day' && parts[1] && parts[2]) renderDay(parts[1], parts[2]);
     else if (parts[0] === 'transcript' && parts[1]) renderTranscript(parts[1]);
+    else if (parts[0] === 'settings') renderSettings();
     else renderOverview();
   }
 

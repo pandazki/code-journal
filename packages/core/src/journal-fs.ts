@@ -9,8 +9,16 @@
 import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 
-import { todayLocalDate } from './datetime';
-import { buildJournal, type GitCommit, type Journal, type ProjectInput } from './journal';
+import { dateInTimezone, hostTimezone } from './datetime';
+import {
+  buildJournal,
+  buildProjectJournal,
+  type GitCommit,
+  type Journal,
+  type ProjectInput,
+  type ProjectJournal,
+} from './journal';
+import { journalProjectTimezone, readJournalSettings } from './journal-settings';
 import { discoverAllSessions, gitRepoKeyOf, readSessionFile, type SessionRef } from './sessions';
 
 /** A project the journal covers — a git repo (or a lone cwd) and its cwds. */
@@ -110,7 +118,7 @@ export function discoverProjects(): DiscoveredProject[] {
  * repo, git missing, …). Author-filtered to the repo's `user.email` so a
  * teammate's pulled commits don't land in your journal.
  */
-function collectGitCommits(repoKey: string): GitCommit[] {
+function collectGitCommits(repoKey: string, tz: string): GitCommit[] {
   const run = (args: string[]): string => {
     try {
       return execFileSync('git', ['-C', repoKey, ...args], {
@@ -136,7 +144,7 @@ function collectGitCommits(repoKey: string): GitCommit[] {
     out.push({
       sha,
       shortSha: sha.slice(0, 7),
-      date: todayLocalDate(new Date(ms)),
+      date: dateInTimezone(new Date(ms), tz),
       subject: (parts[2] ?? '').trim(),
     });
   }
@@ -145,12 +153,40 @@ function collectGitCommits(repoKey: string): GitCommit[] {
 
 /** Build the whole journal from disk — discovery, grouping, commits, then `buildJournal`. */
 export function buildJournalFromDisk(): Journal {
-  const inputs: ProjectInput[] = discoverGroups().map((g) => ({
-    projectId: g.project.id,
-    displayName: g.project.displayName,
-    cwds: g.project.cwds,
-    sessions: g.sessions,
-    commits: collectGitCommits(g.repoKey),
-  }));
+  const settings = readJournalSettings();
+  const inputs: ProjectInput[] = discoverGroups().map((g) => {
+    const timezone = journalProjectTimezone(g.project.id, settings);
+    return {
+      projectId: g.project.id,
+      displayName: g.project.displayName,
+      cwds: g.project.cwds,
+      sessions: g.sessions,
+      commits: collectGitCommits(g.repoKey, timezone),
+      timezone,
+    };
+  });
   return buildJournal(inputs, { loadTranscript: readSessionFile });
+}
+
+/**
+ * Rebuild a single project's journal from disk in its (current) timezone —
+ * the cheap path the journal server takes when the user changes a project's
+ * timezone in Settings, instead of re-running the whole multi-repo build.
+ * Returns null when no discovered project matches `projectId`.
+ */
+export function rebuildProjectJournal(projectId: string): ProjectJournal | null {
+  const group = discoverGroups().find((g) => g.project.id === projectId);
+  if (!group) return null;
+  const timezone = journalProjectTimezone(group.project.id);
+  return buildProjectJournal(
+    {
+      projectId: group.project.id,
+      displayName: group.project.displayName,
+      cwds: group.project.cwds,
+      sessions: group.sessions,
+      commits: collectGitCommits(group.repoKey, timezone),
+      timezone,
+    },
+    { loadTranscript: readSessionFile },
+  );
 }

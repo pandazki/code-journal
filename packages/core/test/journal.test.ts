@@ -269,3 +269,32 @@ test('buildJournal rolls activity up across projects by date', () => {
   assert.equal(b.sessionCount, 1);
   assert.equal(b.projectCount, 1);
 });
+
+// A single event at 19:30 UTC — still the 20th in UTC, already the 21st in
+// UTC+8. The timezone a project reckons in decides which day it files under.
+const SID_TZ = '/store/tz.jsonl';
+const TRANSCRIPT_TZ = J({
+  type: 'user',
+  timestamp: '2026-05-20T19:30:00.000Z',
+  message: { role: 'user', content: 'late-night commit' },
+});
+
+test('digestSession files a session under the calendar day of the given timezone', () => {
+  const r = ref({ id: 'tz', path: SID_TZ });
+  assert.equal(digestSession(r, TRANSCRIPT_TZ, undefined, 'UTC')[0]!.date, '2026-05-20');
+  assert.equal(digestSession(r, TRANSCRIPT_TZ, undefined, 'Asia/Shanghai')[0]!.date, '2026-05-21');
+});
+
+test('buildProjectJournal buckets day cards by the project timezone', () => {
+  const opts: BuildJournalOptions = { loadTranscript: () => TRANSCRIPT_TZ };
+  const base: ProjectInput = {
+    projectId: 'demo',
+    displayName: 'Demo',
+    cwds: ['/repo'],
+    sessions: [ref({ id: 'tz', path: SID_TZ })],
+  };
+  const utc = buildProjectJournal({ ...base, timezone: 'UTC' }, opts);
+  const sh = buildProjectJournal({ ...base, timezone: 'Asia/Shanghai' }, opts);
+  assert.equal(utc.days[0]!.date, '2026-05-20');
+  assert.equal(sh.days[0]!.date, '2026-05-21');
+});

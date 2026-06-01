@@ -18,7 +18,7 @@
  * Everything here is pure metadata — no LLM. The narrative line a day card can
  * carry is generated separately by the host coding agent and layered on top.
  */
-import { todayLocalDate } from './datetime';
+import { dateInTimezone, hostTimezone } from './datetime';
 import type { SessionAgent, SessionRef } from './sessions';
 import { categorize, messageText, parseTranscript } from './transcript';
 
@@ -206,6 +206,8 @@ export interface ProjectInput {
   sessions: SessionRef[];
   /** git commits the project's repo recorded — bucketed into days by date */
   commits?: GitCommit[];
+  /** IANA zone the project's days are reckoned in; defaults to the host zone. */
+  timezone?: string;
 }
 
 export interface BuildJournalOptions {
@@ -344,12 +346,13 @@ function digestInternal(
   ref: SessionRef,
   transcriptText: string,
   maxListLen: number = DEFAULT_MAX_LIST_LEN,
+  tz: string = hostTimezone(),
 ): Digested[] {
   const entries = parseTranscript(transcriptText);
   const gitBranch: string | null = ref.meta.gitBranch ?? null;
 
   const slices = new Map<string, DaySlice>();
-  const fallbackDate = todayLocalDate(new Date(ref.mtimeMs));
+  const fallbackDate = dateInTimezone(new Date(ref.mtimeMs), tz);
   let currentDate = fallbackDate;
 
   const sliceFor = (date: string): DaySlice => {
@@ -377,7 +380,7 @@ function digestInternal(
     if (typeof v !== 'string') return;
     const ms = Date.parse(v);
     if (Number.isNaN(ms)) return;
-    currentDate = todayLocalDate(new Date(ms));
+    currentDate = dateInTimezone(new Date(ms), tz);
     sliceFor(currentDate).timestamps.push(ms);
   };
   const addPath = (set: Set<string>, p: string): void => {
@@ -513,8 +516,9 @@ export function digestSession(
   ref: SessionRef,
   transcriptText: string,
   maxListLen: number = DEFAULT_MAX_LIST_LEN,
+  tz: string = hostTimezone(),
 ): SessionDigest[] {
-  return digestInternal(ref, transcriptText, maxListLen).map((d) => d.digest);
+  return digestInternal(ref, transcriptText, maxListLen, tz).map((d) => d.digest);
 }
 
 // -----------------------------------------------------------------------------
@@ -620,9 +624,10 @@ export function buildProjectJournal(
   opts: BuildJournalOptions,
 ): ProjectJournal {
   const maxListLen = opts.maxListLen ?? DEFAULT_MAX_LIST_LEN;
+  const tz = input.timezone || hostTimezone();
   // One session can span several days — flatMap yields its per-day digests.
   const digested = input.sessions.flatMap((ref) =>
-    digestInternal(ref, opts.loadTranscript(ref.path), maxListLen),
+    digestInternal(ref, opts.loadTranscript(ref.path), maxListLen, tz),
   );
 
   const byDate = new Map<string, Digested[]>();
@@ -661,10 +666,13 @@ export function buildProjectJournal(
   };
 }
 
-/** Assemble the whole journal — every project plus the cross-project timeline. */
-export function buildJournal(inputs: ProjectInput[], opts: BuildJournalOptions): Journal {
-  const projects = inputs.map((i) => buildProjectJournal(i, opts));
-
+/**
+ * Roll a set of project journals up into the cross-project activity timeline.
+ * Exported so callers that rebuild a single project (the journal server's
+ * timezone-change path) can recompute the timeline without duplicating the
+ * bucketing logic.
+ */
+export function rollUpActivity(projects: readonly ProjectJournal[]): ActivityDay[] {
   const byDate = new Map<string, { sessionCount: number; projects: Set<string>; activeMs: number }>();
   for (const p of projects) {
     for (const day of p.days) {
@@ -675,8 +683,7 @@ export function buildJournal(inputs: ProjectInput[], opts: BuildJournalOptions):
       byDate.set(day.date, a);
     }
   }
-
-  const activity: ActivityDay[] = [...byDate.entries()]
+  return [...byDate.entries()]
     .map(([date, a]) => ({
       date,
       sessionCount: a.sessionCount,
@@ -684,6 +691,10 @@ export function buildJournal(inputs: ProjectInput[], opts: BuildJournalOptions):
       activeMs: a.activeMs,
     }))
     .sort((x, y) => x.date.localeCompare(y.date));
+}
 
-  return { projects, activity, generatedAt: new Date().toISOString() };
+/** Assemble the whole journal — every project plus the cross-project timeline. */
+export function buildJournal(inputs: ProjectInput[], opts: BuildJournalOptions): Journal {
+  const projects = inputs.map((i) => buildProjectJournal(i, opts));
+  return { projects, activity: rollUpActivity(projects), generatedAt: new Date().toISOString() };
 }
