@@ -57,6 +57,45 @@ test('init writes default config', async () => {
   assert.ok(!fs.existsSync(path.join(t.tmpDir, '.code-journal')));
 });
 
+test('init auto-detects a host timezone when none is given', async () => {
+  fresh();
+  await runCli(initArgv('proj-a'));
+  const r = await runCli(['config', 'get', 'timezone']);
+  assert.equal(r.exit_code, 0, r.output);
+  // A non-empty IANA zone the platform accepts — the auto-detected host zone.
+  const tz = r.stdout.trim();
+  assert.ok(tz.length > 0, 'timezone should be auto-detected, not empty');
+  assert.doesNotThrow(() => new Intl.DateTimeFormat('en-US', { timeZone: tz }));
+});
+
+test('a pinned timezone flows into entry created_at and keeps today/yesterday consistent', async () => {
+  fresh();
+  // Pin a fixed zone so the assertions hold regardless of the host's zone or
+  // the wall-clock moment the suite runs — the whole point of the config.
+  await runCli(initArgv('proj-a', '--timezone', 'Asia/Shanghai'));
+  assert.equal((await runCli(['config', 'get', 'timezone'])).stdout.trim(), 'Asia/Shanghai');
+
+  await runCli(['append-entry', '--stdin'], { input: entryMd() });
+
+  // The defaulted created_at carries the project zone's offset, so the date
+  // sliced off it (how the entry is filed and windowed) is the Shanghai day.
+  const rows = JSON.parse(
+    (await runCli(['query', '--window', 'today', '--format', 'json'])).stdout,
+  ) as Array<{ created_at: string }>;
+  assert.equal(rows.length, 1);
+  assert.ok(
+    rows[0]!.created_at.endsWith('+08:00'),
+    `created_at should carry the pinned +08:00 offset, got ${rows[0]!.created_at}`,
+  );
+
+  // Filing and "today" reckon in the same (pinned) zone, so today sees it and
+  // yesterday does not — the consistency the host-vs-UTC split used to break.
+  const yday = JSON.parse(
+    (await runCli(['query', '--window', 'yesterday', '--format', 'json'])).stdout,
+  ) as unknown[];
+  assert.equal(yday.length, 0);
+});
+
 test('init is idempotent', async () => {
   fresh();
   await runCli(initArgv('proj-a'));

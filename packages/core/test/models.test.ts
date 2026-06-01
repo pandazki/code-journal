@@ -68,6 +68,18 @@ test('ReportConfig language round-trip', () => {
   assert.equal(r.language, 'zh-CN');
 });
 
+test('timezone round-trips and defaults to empty (= host) when absent', () => {
+  const pinned = parseProject({ project_id: 'x', timezone: 'Asia/Shanghai' });
+  assert.equal(pinned.timezone, 'Asia/Shanghai');
+  assert.equal((serializeProject(pinned) as { timezone?: string }).timezone, 'Asia/Shanghai');
+
+  // Absent → empty string (the "use host zone" sentinel), and an empty zone
+  // is omitted from the serialized config to avoid churn.
+  const bare = parseProject({ project_id: 'x' });
+  assert.equal(bare.timezone, '');
+  assert.ok(!('timezone' in serializeProject(bare)));
+});
+
 test('project without report block auto-upgrades to default ReportConfig (legacy --no-daily-reports)', () => {
   const p = parseProject({ project_id: 'x' });
   assert.equal(p.report.catchup_lookback_days, DEFAULT_CATCHUP_LOOKBACK_DAYS);

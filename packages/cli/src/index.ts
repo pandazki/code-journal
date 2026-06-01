@@ -28,6 +28,7 @@ import {
   atomicWriteFileSync,
   canonicalizeCwd,
   cwdsForProject,
+  dateInTimezone,
   defaultProject,
   deleteProject,
   ensureDirs,
@@ -35,17 +36,17 @@ import {
   findProjectKeyForCwd,
   formatProjectKey,
   getDotted,
-  isoLocalNow,
+  isoInTimezone,
   isoUtcNow,
   listPendingDaily,
   listRegisteredProjects,
   loadProject,
-  localTzOffsetIso,
   makeProjectKey,
   parseReportMeta,
   projectConfigPath,
   projectRoot,
   projectRootFor,
+  projectTimezone,
   queryEntries,
   readSynthesisState,
   recentEntriesMarkdown,
@@ -53,7 +54,7 @@ import {
   requireProjectKeyForCwd,
   shiftLocalDate,
   summarizeProjectForDelete,
-  todayLocalDate,
+  tzOffsetIso,
   writeProject,
   writeReport,
 } from '@code-journal/core';
@@ -80,6 +81,7 @@ async function cmdInit(rest: string[], _ctx: CliContext): Promise<ExitCode> {
       'project-id': { type: 'string' },
       'display-name': { type: 'string', default: '' },
       'report-language': { type: 'string' },
+      timezone: { type: 'string' },
     },
     allowPositionals: false,
   });
@@ -155,6 +157,10 @@ async function cmdInit(rest: string[], _ctx: CliContext): Promise<ExitCode> {
   const proj = defaultProject(key, {
     displayName: (values['display-name'] as string) || '',
     reportLanguage: (values['report-language'] as string) || undefined,
+    // Omit → defaultProject auto-detects the host zone (Intl). An explicit
+    // --timezone pins an IANA zone (e.g. for a project worked from machines
+    // in different zones, or a CI/server box running in UTC).
+    timezone: (values.timezone as string) || undefined,
   });
   const now = isoUtcNow();
   writeProject(proj, projRoot, { cwds: [cwd], first_registered: now, last_updated: now });
@@ -355,12 +361,14 @@ async function cmdWriteReport(rest: string[], ctx: CliContext): Promise<ExitCode
   }
   const metaObj = JSON.parse(metaText) as JsonObject;
   if (!metaObj.created_at) metaObj.created_at = isoUtcNow();
-  // generated_at is the wall-clock generation time (host local TZ). Most
-  // drafters won't set this explicitly — the CLI fills it in so every
-  // report file documents WHEN it was produced (vs `window`, which is the
-  // *period covered* by the report). Drafters can still override by
-  // sending an explicit generated_at in meta.
-  if (!metaObj.generated_at) metaObj.generated_at = isoLocalNow();
+  // generated_at is the wall-clock generation time in the PROJECT's timezone
+  // (same zone `window` / staleness are reckoned in). Most drafters won't set
+  // this explicitly — the CLI fills it in so every report file documents WHEN
+  // it was produced (vs `window`, which is the *period covered* by the
+  // report). Drafters can still override by sending an explicit generated_at.
+  if (!metaObj.generated_at) {
+    metaObj.generated_at = isoInTimezone(new Date(), projectTimezone());
+  }
   let rm: ReportMeta;
   try {
     rm = parseReportMeta(metaObj);
@@ -679,10 +687,14 @@ async function cmdSynthContext(rest: string[], _ctx: CliContext): Promise<ExitCo
   } catch {
     // No config / no report block — default to 1 day.
   }
-  const todayLocal = todayLocalDate();
+  // Reckon the discovery window in the PROJECT's timezone so synthesized
+  // entries (stamped with `tzOffset`) file under the same calendar days that
+  // queries and pending-report catch-up use.
+  const tz = projectTimezone();
+  const todayLocal = dateInTimezone(new Date(), tz);
   const startLocal = shiftLocalDate(todayLocal, -(lookbackDays - 1));
   const window = `${startLocal}..${todayLocal}`;
-  const tzOffset = localTzOffsetIso();
+  const tzOffset = tzOffsetIso(new Date(), tz);
 
   const synthDir = path.join(projRoot, '.synth', 'current');
   try {
