@@ -10,16 +10,25 @@ import { createServer, type Server } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 
 import {
+  assignMember,
   badgeLabel,
+  buildJournalFromDisk,
   categorize,
+  createProject,
+  defaultRepoKeyResolver,
+  discoverAllSessions,
   hostTimezone,
   parseTranscript,
   previewLine,
   projectConfig,
+  projectIdFor,
   readJournalSettings,
+  readProjectRegistry,
   rebuildProjectJournal,
+  removeProject,
   rollUpActivity,
   setProjectConfig,
+  unassignMember,
   type Journal,
 } from '@code-journal/core';
 
@@ -98,6 +107,53 @@ export function startServer(
   }
   reindex();
 
+  // Structural Project edits (create / assign / delete) change how sessions
+  // group, so the whole journal must be rebuilt. Debounced + background so a
+  // burst of edits triggers one rebuild and the request returns immediately;
+  // the journal view picks up the result on its next /api/journal fetch.
+  let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
+  let rebuilding = false;
+  function scheduleRebuild(): void {
+    if (rebuildTimer) clearTimeout(rebuildTimer);
+    rebuildTimer = setTimeout(() => {
+      rebuildTimer = null;
+      rebuilding = true;
+      try {
+        const fresh = buildJournalFromDisk();
+        journal.projects = fresh.projects;
+        journal.activity = fresh.activity;
+        journal.generatedAt = fresh.generatedAt;
+        loadNarratives(journal);
+        reindex();
+      } finally {
+        rebuilding = false;
+      }
+    }, 1200);
+  }
+
+  /**
+   * Folders worth organizing: every repo that earns a journal entry (≥2
+   * sessions, non-junk), plus any repo a Project already claims. Mirrors the
+   * journal's own filter so the list isn't drowned by one-off scratch cwds.
+   */
+  function discoverFolders(): Array<{ repoKey: string; name: string; sessionCount: number; projectId: string }> {
+    const repoKey = defaultRepoKeyResolver();
+    const reg = readProjectRegistry();
+    const member = new Map<string, string>();
+    for (const p of reg.projects) for (const m of p.members) member.set(m, p.id);
+    const tally = new Map<string, number>();
+    for (const s of discoverAllSessions()) {
+      const rk = repoKey(s.cwd) ?? s.cwd;
+      tally.set(rk, (tally.get(rk) ?? 0) + 1);
+    }
+    const junk = (name: string) => /^(\.|claude-code-boot)/.test(name);
+    return [...tally.entries()]
+      .map(([rk, n]) => ({ repoKey: rk, name: rk.split('/').pop() || rk, sessionCount: n }))
+      .filter((f) => member.has(f.repoKey) || (!junk(f.name) && f.sessionCount >= 2))
+      .map((f) => ({ ...f, projectId: member.get(f.repoKey) ?? projectIdFor(f.repoKey) }))
+      .sort((a, b) => b.sessionCount - a.sessionCount);
+  }
+
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
 
@@ -168,6 +224,80 @@ export function startServer(
           res.end(
             JSON.stringify({ ok: true, projectId, timezone: projectConfig(projectId).timezone || '' }),
           );
+        } catch (err) {
+          res.writeHead(400, { 'content-type': MIME['.json']! });
+          res.end(JSON.stringify({ error: String(err instanceof Error ? err.message : err) }));
+        }
+      });
+      return;
+    }
+
+    // Projects management — list folders + registered Projects (for the
+    // organize screen). Derived from discovery + registry; no journal build.
+    if (url.pathname === '/api/projects' && req.method === 'GET') {
+      const reg = readProjectRegistry();
+      res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
+      res.end(
+        JSON.stringify({
+          folders: discoverFolders(),
+          projects: reg.projects.map((p) => ({
+            id: p.id,
+            displayName: p.displayName,
+            members: p.members,
+            config: p.config,
+          })),
+          zones: supportedTimeZones(),
+          host: hostTimezone(),
+          rebuilding,
+        }),
+      );
+      return;
+    }
+    if (url.pathname === '/api/projects' && req.method === 'POST') {
+      let raw = '';
+      req.on('data', (chunk) => {
+        raw += chunk;
+        if (raw.length > 64 * 1024) req.destroy();
+      });
+      req.on('end', () => {
+        try {
+          const body = JSON.parse(raw || '{}') as Record<string, unknown>;
+          const action = String(body.action ?? '');
+          let structural = false;
+          switch (action) {
+            case 'create': {
+              const { id } = createProject(String(body.displayName ?? '').trim() || 'Project');
+              res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
+              res.end(JSON.stringify({ ok: true, id }));
+              return; // an empty Project changes no grouping yet
+            }
+            case 'rename':
+              setProjectConfig(String(body.id), {}, String(body.displayName ?? '').trim());
+              structural = true; // display name shows in the journal
+              break;
+            case 'timezone':
+              setProjectConfig(String(body.id), { timezone: String(body.timezone ?? '') });
+              structural = true;
+              break;
+            case 'assign': {
+              const repoKey = String(body.repoKey ?? '');
+              const target = String(body.projectId ?? '');
+              if (!repoKey) throw new Error('repoKey required');
+              if (target) assignMember(target, repoKey);
+              else unassignMember(repoKey); // '' → revert to its own auto-Project
+              structural = true;
+              break;
+            }
+            case 'delete':
+              removeProject(String(body.id));
+              structural = true;
+              break;
+            default:
+              throw new Error(`unknown action '${action}'`);
+          }
+          if (structural) scheduleRebuild();
+          res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
+          res.end(JSON.stringify({ ok: true, rebuilding: structural }));
         } catch (err) {
           res.writeHead(400, { 'content-type': MIME['.json']! });
           res.end(JSON.stringify({ error: String(err instanceof Error ? err.message : err) }));

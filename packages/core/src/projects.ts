@@ -270,6 +270,37 @@ export function setProjectConfig(id: string, config: ProjectConfig, displayName?
   return upsertProject(id, { config, ...(displayName !== undefined ? { displayName } : {}) });
 }
 
+/** Create a new, empty registered Project with a unique id. */
+export function createProject(displayName: string): { id: string; registry: ProjectRegistry } {
+  const reg = readProjectRegistry();
+  const slug =
+    displayName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'project';
+  // suffix a hash so a user Project never collides with a repo's auto id
+  const id = `${slug}-${hash6(`${slug}:${reg.projects.length}:${Date.now()}`)}`;
+  reg.projects.push({ id, displayName: displayName.trim() || id, members: [], config: {} });
+  writeProjectRegistry(reg);
+  return { id, registry: reg };
+}
+
+/** Remove a registered Project; its member repos revert to auto-Projects. */
+export function removeProject(id: string): ProjectRegistry {
+  const reg = readProjectRegistry();
+  reg.projects = reg.projects.filter((p) => p.id !== id);
+  writeProjectRegistry(reg);
+  return reg;
+}
+
+/** Remove a repo key from every Project's members (revert it to its auto-Project). */
+export function unassignMember(repoKey: string): ProjectRegistry {
+  const reg = readProjectRegistry();
+  for (const p of reg.projects) p.members = p.members.filter((m) => m !== repoKey);
+  writeProjectRegistry(reg);
+  return reg;
+}
+
 /** Add a repo key to a Project's members, removing it from any other Project. */
 export function assignMember(id: string, repoKey: string, displayName?: string): ProjectRegistry {
   const reg = readProjectRegistry();
