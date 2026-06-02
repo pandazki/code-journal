@@ -98,10 +98,26 @@
     pencil: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
     plus: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
     x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+    check: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
     ungroup: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="m6 18 12-12"/></svg>',
   };
   function iconBtn(name, title, onclick) {
     return el('button', { class: 'icn-btn', title: title, 'aria-label': title, onclick: onclick, html: SVGS[name] });
+  }
+
+  // An inline, ledger-style name field — replaces a native prompt(). Type a
+  // name, ⏎ or ✓ to commit, Esc or ✕ to abandon. Set in the body serif so it
+  // reads like writing a title on the page, not filling a form box.
+  function nameComposer(opts) {
+    const input = el('input', { class: 'name-input', type: 'text', placeholder: opts.placeholder || 'Name…' });
+    const submit = () => { const v = input.value.trim(); if (v) opts.onSubmit(v); else opts.onCancel(); };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); opts.onCancel(); }
+    });
+    setTimeout(() => input.focus(), 0);
+    return el('span', { class: 'name-composer' },
+      input, iconBtn('check', 'Create', submit), iconBtn('x', 'Cancel', opts.onCancel));
   }
 
   // Which field is mid-edit (so its editor shows instead of plain text). One at
@@ -666,10 +682,14 @@
           'its folders together. Changes regroup the journal in the background.'));
 
         section.append(el('div', { class: 'proj-actions' },
-          el('button', { class: 'proj-btn', onclick: () => {
-            const name = prompt('New Project name:');
-            if (name && name.trim()) postProjects({ action: 'create', displayName: name.trim() }, true);
-          } }, '+ New Project'),
+          editKey === 'new'
+            ? nameComposer({
+                placeholder: 'Name this project…',
+                onSubmit: (name) => { editKey = null; postProjects({ action: 'create', displayName: name }, true); },
+                onCancel: () => { editKey = null; renderProjects(); },
+              })
+            : el('button', { class: 'proj-btn-ghost', onclick: () => { editKey = 'new'; renderProjects(); } },
+                el('span', { class: 'icn', html: SVGS.plus }), 'New Project'),
           data.rebuilding ? el('span', { class: 'proj-status' }, 'journal regrouping…') : null));
 
         // Folder → Project: project name (text) + pencil to move, or "Add to
@@ -677,6 +697,14 @@
         const assignField = (f) => {
           const key = 'assign:' + f.repoKey;
           const reg = data.projects.find((p) => p.id === f.projectId);
+          // naming a brand-new Project to drop this folder into
+          if (editKey === 'newfor:' + f.repoKey) {
+            return nameComposer({
+              placeholder: 'New project for this folder…',
+              onSubmit: (name) => { editKey = null; createAndAssign(name, f.repoKey); },
+              onCancel: () => { editKey = null; renderProjects(); },
+            });
+          }
           if (editKey === key) {
             const sel = el('select', { class: 'tz-select' });
             sel.append(el('option', { value: '' }, '— its own project —'));
@@ -686,7 +714,12 @@
               sel.append(o);
             });
             sel.append(el('option', { value: '__new__' }, '＋ New Project…'));
-            sel.addEventListener('change', () => { const v = sel.value; editKey = null; assignFolder(f.repoKey, v); });
+            sel.addEventListener('change', () => {
+              const v = sel.value;
+              if (v === '__new__') { editKey = 'newfor:' + f.repoKey; renderProjects(); return; }
+              editKey = null;
+              postProjects({ action: 'assign', repoKey: f.repoKey, projectId: v }, true);
+            });
             const wrap = el('span', { class: 'edit-inline' },
               sel, iconBtn('x', 'Cancel', () => { editKey = null; renderProjects(); }));
             if (window.CJSelect) window.CJSelect.enhance(sel, { autoOpen: true });
@@ -708,10 +741,14 @@
             const nameInput = el('input', { class: 'proj-name', value: p.displayName });
             nameInput.addEventListener('change', () =>
               postProjects({ action: 'rename', id: p.id, displayName: nameInput.value }, true));
-            const del = iconBtn('ungroup', 'Ungroup — folders go back to separate projects', () => {
-              if (confirm('Ungroup “' + p.displayName + '”? Its folders go back to separate projects.'))
-                postProjects({ action: 'delete', id: p.id }, true);
-            });
+            const del = editKey === 'ungroup:' + p.id
+              ? el('span', { class: 'inline-confirm' },
+                  el('span', { class: 'confirm-q' }, 'Ungroup?'),
+                  iconBtn('check', 'Confirm — folders go back to separate projects',
+                    () => { editKey = null; postProjects({ action: 'delete', id: p.id }, true); }),
+                  iconBtn('x', 'Keep grouped', () => { editKey = null; renderProjects(); }))
+              : iconBtn('ungroup', 'Ungroup — folders go back to separate projects',
+                  () => { editKey = 'ungroup:' + p.id; renderProjects(); });
             const members = (p.members && p.members.length)
               ? p.members.map((m) => el('span', { class: 'proj-chip' }, m.split('/').pop() || m))
               : [el('span', { class: 'proj-empty' }, 'no folders yet — assign some below')];
@@ -746,17 +783,12 @@
           el('p', { class: 'state-sub' }, String((err && err.message) || err)))]));
   }
 
-  function assignFolder(repoKey, value) {
-    if (value === '__new__') {
-      const name = prompt('New Project name:');
-      if (!name || !name.trim()) { renderProjects(); return; }
-      postProjects({ action: 'create', displayName: name.trim() }, false)
-        .then((b) => (b && b.id)
-          ? postProjects({ action: 'assign', repoKey, projectId: b.id }, true)
-          : renderProjects());
-      return;
-    }
-    postProjects({ action: 'assign', repoKey, projectId: value }, true);
+  // Create a Project named `name` and drop `repoKey` into it in one go.
+  function createAndAssign(name, repoKey) {
+    postProjects({ action: 'create', displayName: name }, false)
+      .then((b) => (b && b.id)
+        ? postProjects({ action: 'assign', repoKey, projectId: b.id }, true)
+        : renderProjects());
   }
 
   // --- routing -------------------------------------------------------------
