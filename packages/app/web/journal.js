@@ -567,18 +567,19 @@
     return c;
   }
 
-  function mount(nodes) {
+  function mount(nodes, keepScroll) {
+    const y = keepScroll ? window.scrollY : 0;
     view.replaceChildren(...nodes);
-    window.scrollTo(0, 0);
-    view.focus({ preventScroll: true });
+    window.scrollTo(0, y);
+    if (!keepScroll) view.focus({ preventScroll: true }); // focusing scrolls; skip on in-place edits
   }
 
   // --- settings ------------------------------------------------------------
   // Per-project timezone — the zone a project's day cards and activity heatmap
   // are reckoned in. Changing it rebuilds that project on the server (days can
   // shift across midnight), so on save we re-fetch the whole journal.
-  function renderSettings() {
-    mount([crumb([['#/', 'Journal']], 'Settings'),
+  function renderSettings(keepScroll) {
+    if (!keepScroll) mount([crumb([['#/', 'Journal']], 'Settings'),
       el('div', { class: 'state' }, el('p', { class: 'state-line' }, 'Loading settings…'))]);
     fetch('/api/journal/settings')
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
@@ -588,6 +589,7 @@
         section.append(el('p', { class: 'settings-intro' },
           'The timezone each project reckons its days in. Auto follows this machine’s zone (' +
           (data.host || 'host') + '). Stored locally — nothing leaves this machine.'));
+        if (data.dirty) section.append(rebuildNotice(renderSettings));
 
         (data.projects || []).forEach((p) => {
           section.append(el('div', { class: 'settings-row' },
@@ -595,13 +597,13 @@
             el('div', { class: 'settings-row-control' }, editableTz({
               key: 'tz:set:' + p.id, current: p.timezone, host: data.host, zones: data.zones,
               onPick: (tz) => saveJournalTz(p.id, tz),
-              rerender: renderSettings,
+              rerender: () => renderSettings(true),
             }))));
         });
         if (!(data.projects || []).length) {
           section.append(el('p', { class: 'state-sub' }, 'No projects discovered yet.'));
         }
-        mount([crumb([['#/', 'Journal']], 'Settings'), reveal(section, 0)]);
+        mount([crumb([['#/', 'Journal']], 'Settings'), reveal(section, 0)], keepScroll);
       })
       .catch((err) => mount([crumb([['#/', 'Journal']], 'Settings'),
         el('div', { class: 'state' },
@@ -645,14 +647,36 @@
   }
 
   function saveJournalTz(projectId, timezone) {
+    // Writes the config and flags the journal stale; the re-bucketing happens
+    // on the manual Rebuild (see rebuildNotice), not here — so saving is instant.
     fetch('/api/journal/settings', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ projectId, timezone }),
     })
       .then((r) => r.json().then((b) => { if (!r.ok) throw new Error((b && b.error) || 'save failed'); }))
-      .then(refreshJournal)
-      .then(renderSettings)
-      .catch((err) => { console.error(err); renderSettings(); });
+      .then(() => renderSettings(true))
+      .catch((err) => { console.error(err); renderSettings(true); });
+  }
+
+  // Shown when Project edits have left the journal stale. The expensive
+  // re-scan runs only here, on click — never automatically on every edit.
+  function rebuildNotice(rerender) {
+    const btn = el('button', { class: 'rebuild-btn' }, 'Rebuild journal');
+    btn.addEventListener('click', () => {
+      btn.textContent = 'Rebuilding… (reading sessions)';
+      btn.disabled = true;
+      fetch('/api/projects', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'rebuild' }),
+      })
+        .then((r) => r.json())
+        .then(refreshJournal)
+        .then(() => rerender(true))
+        .catch((err) => { console.error(err); btn.textContent = 'Rebuild failed — retry'; btn.disabled = false; });
+    });
+    return el('div', { class: 'rebuild-notice' },
+      el('span', { class: 'rebuild-hint' }, 'Project changes are saved — rebuild to see them in the journal.'),
+      btn);
   }
 
   // --- projects management -------------------------------------------------
@@ -664,12 +688,12 @@
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
     })
       .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
-      .then(({ ok, b }) => { if (!ok) throw new Error((b && b.error) || 'failed'); if (reload) renderProjects(); return b; })
-      .catch((err) => { console.error('projects:', err); if (reload) renderProjects(); });
+      .then(({ ok, b }) => { if (!ok) throw new Error((b && b.error) || 'failed'); if (reload) renderProjects(true); return b; })
+      .catch((err) => { console.error('projects:', err); if (reload) renderProjects(true); });
   }
 
-  function renderProjects() {
-    mount([crumb([['#/', 'Journal']], 'Projects'),
+  function renderProjects(keepScroll) {
+    if (!keepScroll) mount([crumb([['#/', 'Journal']], 'Projects'),
       el('div', { class: 'state' }, el('p', { class: 'state-line' }, 'Loading projects…'))]);
     fetch('/api/projects')
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
@@ -686,11 +710,11 @@
             ? nameComposer({
                 placeholder: 'Name this project…',
                 onSubmit: (name) => { editKey = null; postProjects({ action: 'create', displayName: name }, true); },
-                onCancel: () => { editKey = null; renderProjects(); },
+                onCancel: () => { editKey = null; renderProjects(true); },
               })
-            : el('button', { class: 'proj-btn-ghost', onclick: () => { editKey = 'new'; renderProjects(); } },
-                el('span', { class: 'icn', html: SVGS.plus }), 'New Project'),
-          data.rebuilding ? el('span', { class: 'proj-status' }, 'journal regrouping…') : null));
+            : el('button', { class: 'proj-btn-ghost', onclick: () => { editKey = 'new'; renderProjects(true); } },
+                el('span', { class: 'icn', html: SVGS.plus }), 'New Project')));
+        if (data.dirty) section.append(rebuildNotice(renderProjects));
 
         // Folder → Project: project name (text) + pencil to move, or "Add to
         // Project" when unassigned. The picker only appears while editing.
@@ -702,7 +726,7 @@
             return nameComposer({
               placeholder: 'New project for this folder…',
               onSubmit: (name) => { editKey = null; createAndAssign(name, f.repoKey); },
-              onCancel: () => { editKey = null; renderProjects(); },
+              onCancel: () => { editKey = null; renderProjects(true); },
             });
           }
           if (editKey === key) {
@@ -716,21 +740,21 @@
             sel.append(el('option', { value: '__new__' }, '＋ New Project…'));
             sel.addEventListener('change', () => {
               const v = sel.value;
-              if (v === '__new__') { editKey = 'newfor:' + f.repoKey; renderProjects(); return; }
+              if (v === '__new__') { editKey = 'newfor:' + f.repoKey; renderProjects(true); return; }
               editKey = null;
               postProjects({ action: 'assign', repoKey: f.repoKey, projectId: v }, true);
             });
             const wrap = el('span', { class: 'edit-inline' },
-              sel, iconBtn('x', 'Cancel', () => { editKey = null; renderProjects(); }));
+              sel, iconBtn('x', 'Cancel', () => { editKey = null; renderProjects(true); }));
             if (window.CJSelect) window.CJSelect.enhance(sel, { autoOpen: true });
             return wrap;
           }
           if (reg) {
             return el('span', { class: 'field-show' },
               el('span', { class: 'assign-name' }, reg.displayName),
-              iconBtn('pencil', 'Move to another Project', () => { editKey = key; renderProjects(); }));
+              iconBtn('pencil', 'Move to another Project', () => { editKey = key; renderProjects(true); }));
           }
-          return el('button', { class: 'assign-add', onclick: () => { editKey = key; renderProjects(); } },
+          return el('button', { class: 'assign-add', onclick: () => { editKey = key; renderProjects(true); } },
             el('span', { class: 'icn', html: SVGS.plus }), 'Add to Project');
         };
 
@@ -746,9 +770,9 @@
                   el('span', { class: 'confirm-q' }, 'Ungroup?'),
                   iconBtn('check', 'Confirm — folders go back to separate projects',
                     () => { editKey = null; postProjects({ action: 'delete', id: p.id }, true); }),
-                  iconBtn('x', 'Keep grouped', () => { editKey = null; renderProjects(); }))
+                  iconBtn('x', 'Keep grouped', () => { editKey = null; renderProjects(true); }))
               : iconBtn('ungroup', 'Ungroup — folders go back to separate projects',
-                  () => { editKey = 'ungroup:' + p.id; renderProjects(); });
+                  () => { editKey = 'ungroup:' + p.id; renderProjects(true); });
             const members = (p.members && p.members.length)
               ? p.members.map((m) => el('span', { class: 'proj-chip' }, m.split('/').pop() || m))
               : [el('span', { class: 'proj-empty' }, 'no folders yet — assign some below')];
@@ -758,7 +782,7 @@
                 editableTz({
                   key: 'tz:' + p.id, current: p.config && p.config.timezone, host: data.host, zones: data.zones,
                   onPick: (tz) => postProjects({ action: 'timezone', id: p.id, timezone: tz }, true),
-                  rerender: renderProjects,
+                  rerender: () => renderProjects(true),
                 })),
               el('div', { class: 'proj-members' }, members)));
           });
@@ -775,7 +799,7 @@
             el('div', { class: 'settings-row-control' }, assignField(f))));
         });
 
-        mount([crumb([['#/', 'Journal']], 'Projects'), reveal(section, 0)]);
+        mount([crumb([['#/', 'Journal']], 'Projects'), reveal(section, 0)], keepScroll);
       })
       .catch((err) => mount([crumb([['#/', 'Journal']], 'Projects'),
         el('div', { class: 'state' },
@@ -788,7 +812,7 @@
     postProjects({ action: 'create', displayName: name }, false)
       .then((b) => (b && b.id)
         ? postProjects({ action: 'assign', repoKey, projectId: b.id }, true)
-        : renderProjects());
+        : renderProjects(true));
   }
 
   // --- routing -------------------------------------------------------------

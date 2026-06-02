@@ -24,9 +24,7 @@ import {
   projectIdFor,
   readJournalSettings,
   readProjectRegistry,
-  rebuildProjectJournal,
   removeProject,
-  rollUpActivity,
   setProjectConfig,
   unassignMember,
   type Journal,
@@ -107,29 +105,22 @@ export function startServer(
   }
   reindex();
 
-  // Structural Project edits (create / assign / delete) change how sessions
-  // group, so the whole journal must be rebuilt. Debounced + background so a
-  // burst of edits triggers one rebuild and the request returns immediately;
-  // the journal view picks up the result on its next /api/journal fetch.
-  let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
-  let rebuilding = false;
-  function scheduleRebuild(): void {
-    if (rebuildTimer) clearTimeout(rebuildTimer);
-    rebuildTimer = setTimeout(() => {
-      rebuildTimer = null;
-      rebuilding = true;
-      try {
-        const fresh = buildJournalFromDisk();
-        journal.projects = fresh.projects;
-        journal.activity = fresh.activity;
-        journal.generatedAt = fresh.generatedAt;
-        loadNarratives(journal);
-        reindex();
-        tallyCache = null; // new sessions may have landed; refresh the folder list
-      } finally {
-        rebuilding = false;
-      }
-    }, 1200);
+  // Structural Project edits (assign / rename / timezone / delete) change how
+  // sessions group, so the journal must be rebuilt to reflect them. The rebuild
+  // is EXPENSIVE (reads every transcript + a `git` spawn per repo — tens of
+  // seconds) and synchronous, so we do NOT run it on every edit (that froze the
+  // server and made the next click hang). Instead we just flag the journal
+  // stale; the user rebuilds on demand via the "Rebuild" action.
+  let registryDirty = false;
+  function rebuildNow(): void {
+    const fresh = buildJournalFromDisk();
+    journal.projects = fresh.projects;
+    journal.activity = fresh.activity;
+    journal.generatedAt = fresh.generatedAt;
+    loadNarratives(journal);
+    reindex();
+    tallyCache = null; // new sessions may have landed; refresh the folder list
+    registryDirty = false;
   }
 
   // Folder discovery is expensive (reads every session + a `git` spawn per
@@ -186,7 +177,7 @@ export function startServer(
         timezone: projectConfig(p.projectId).timezone || legacy[p.projectId]?.timezone || '',
       }));
       res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
-      res.end(JSON.stringify({ projects, zones: supportedTimeZones(), host: hostTimezone() }));
+      res.end(JSON.stringify({ projects, zones: supportedTimeZones(), host: hostTimezone(), dirty: registryDirty }));
       return;
     }
     if (url.pathname === '/api/journal/settings' && req.method === 'POST') {
@@ -217,26 +208,12 @@ export function startServer(
               return;
             }
           }
-          // Persist to the unified Project registry, then rebuild just this
-          // project in its new zone and swap it in — far cheaper than re-running
-          // the whole multi-repo discovery.
+          // Persist to the registry and flag the journal stale — the (slow)
+          // re-bucketing happens on the next manual Rebuild, not on every edit.
           setProjectConfig(projectId, { timezone: tz }, proj.displayName);
-          const rebuilt = rebuildProjectJournal(projectId);
-          if (!rebuilt) {
-            res.writeHead(404, { 'content-type': MIME['.json']! });
-            res.end(JSON.stringify({ error: 'project no longer discoverable' }));
-            return;
-          }
-          journal.projects = journal.projects.map((p) =>
-            p.projectId === projectId ? rebuilt : p,
-          );
-          journal.activity = rollUpActivity(journal.projects);
-          loadNarratives(journal); // re-attach any narratives whose keys still match
-          reindex();
+          registryDirty = true;
           res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
-          res.end(
-            JSON.stringify({ ok: true, projectId, timezone: projectConfig(projectId).timezone || '' }),
-          );
+          res.end(JSON.stringify({ ok: true, projectId, timezone: tz, dirty: true }));
         } catch (err) {
           res.writeHead(400, { 'content-type': MIME['.json']! });
           res.end(JSON.stringify({ error: String(err instanceof Error ? err.message : err) }));
@@ -261,7 +238,7 @@ export function startServer(
           })),
           zones: supportedTimeZones(),
           host: hostTimezone(),
-          rebuilding,
+          dirty: registryDirty,
         }),
       );
       return;
@@ -276,21 +253,20 @@ export function startServer(
         try {
           const body = JSON.parse(raw || '{}') as Record<string, unknown>;
           const action = String(body.action ?? '');
-          let structural = false;
           switch (action) {
             case 'create': {
               const { id } = createProject(String(body.displayName ?? '').trim() || 'Project');
               res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
-              res.end(JSON.stringify({ ok: true, id }));
-              return; // an empty Project changes no grouping yet
+              res.end(JSON.stringify({ ok: true, id })); // empty Project: no regroup, not dirty
+              return;
             }
             case 'rename':
               setProjectConfig(String(body.id), {}, String(body.displayName ?? '').trim());
-              structural = true; // display name shows in the journal
+              registryDirty = true; // display name shows in the journal
               break;
             case 'timezone':
               setProjectConfig(String(body.id), { timezone: String(body.timezone ?? '') });
-              structural = true;
+              registryDirty = true;
               break;
             case 'assign': {
               const repoKey = String(body.repoKey ?? '');
@@ -298,19 +274,21 @@ export function startServer(
               if (!repoKey) throw new Error('repoKey required');
               if (target) assignMember(target, repoKey);
               else unassignMember(repoKey); // '' → revert to its own auto-Project
-              structural = true;
+              registryDirty = true;
               break;
             }
             case 'delete':
               removeProject(String(body.id));
-              structural = true;
+              registryDirty = true;
+              break;
+            case 'rebuild':
+              rebuildNow(); // the one place the expensive re-scan runs — on demand
               break;
             default:
               throw new Error(`unknown action '${action}'`);
           }
-          if (structural) scheduleRebuild();
           res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
-          res.end(JSON.stringify({ ok: true, rebuilding: structural }));
+          res.end(JSON.stringify({ ok: true, dirty: registryDirty }));
         } catch (err) {
           res.writeHead(400, { 'content-type': MIME['.json']! });
           res.end(JSON.stringify({ error: String(err instanceof Error ? err.message : err) }));
