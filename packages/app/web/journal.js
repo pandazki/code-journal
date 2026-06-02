@@ -125,6 +125,49 @@
   // timezone), `assign:<repoKey>` (folder → project).
   let editKey = null;
 
+  // --- journal rebuild status (masthead flag) ------------------------------
+  // A small, always-visible flag: "Rebuild" when Project edits have left the
+  // journal stale, "Rebuilding…" while the re-scan runs — so the state is
+  // visible from any page and triggerable from the masthead, not just Projects.
+  const rebuildFlag = document.getElementById('rebuild-flag');
+  let rebuilding = false;
+  let journalDirty = false;
+  function setRebuildFlag() {
+    if (!rebuildFlag) return;
+    if (rebuilding) {
+      rebuildFlag.hidden = false; rebuildFlag.disabled = true;
+      rebuildFlag.className = 'rebuild-flag rebuilding';
+      rebuildFlag.title = 'Rebuilding the journal…';
+      rebuildFlag.innerHTML = '<span class="rf-dot"></span>Rebuilding…';
+    } else if (journalDirty) {
+      rebuildFlag.hidden = false; rebuildFlag.disabled = false;
+      rebuildFlag.className = 'rebuild-flag pending';
+      rebuildFlag.title = 'Project changes pending — rebuild the journal';
+      rebuildFlag.innerHTML = '<span class="rf-dot"></span>Rebuild';
+    } else {
+      rebuildFlag.hidden = true; rebuildFlag.className = 'rebuild-flag';
+    }
+  }
+  function markDirty(d) { journalDirty = !!d; setRebuildFlag(); }
+  function pollStatus() {
+    return fetch('/api/status').then((r) => r.json())
+      .then((s) => { if (!rebuilding) markDirty(s.dirty); }).catch(() => {});
+  }
+  // The ONE place the expensive re-scan runs (manual / masthead). Surfaces the
+  // "Rebuilding…" flag, then refreshes the in-memory journal and clears it.
+  function doRebuild(after) {
+    if (rebuilding) return;
+    rebuilding = true; setRebuildFlag();
+    fetch('/api/projects', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'rebuild' }),
+    })
+      .then((r) => r.json())
+      .then(refreshJournal)
+      .then(() => { rebuilding = false; journalDirty = false; setRebuildFlag(); if (after) after(); })
+      .catch((err) => { console.error(err); rebuilding = false; setRebuildFlag(); pollStatus(); });
+  }
+
   /** The metadata one-liner a day card shows — no LLM, just the facts. */
   function daySummary(d) {
     const span = hrs(d.activeMs);
@@ -654,25 +697,19 @@
       body: JSON.stringify({ projectId, timezone }),
     })
       .then((r) => r.json().then((b) => { if (!r.ok) throw new Error((b && b.error) || 'save failed'); }))
-      .then(() => renderSettings(true))
+      .then(() => { markDirty(true); renderSettings(true); })
       .catch((err) => { console.error(err); renderSettings(true); });
   }
 
-  // Shown when Project edits have left the journal stale. The expensive
-  // re-scan runs only here, on click — never automatically on every edit.
+  // Shown when Project edits have left the journal stale. Routes through the
+  // shared doRebuild so the masthead flag tracks it too.
   function rebuildNotice(rerender) {
     const btn = el('button', { class: 'rebuild-btn' }, 'Rebuild journal');
     btn.addEventListener('click', () => {
+      if (rebuilding) return;
       btn.textContent = 'Rebuilding… (reading sessions)';
       btn.disabled = true;
-      fetch('/api/projects', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'rebuild' }),
-      })
-        .then((r) => r.json())
-        .then(refreshJournal)
-        .then(() => rerender(true))
-        .catch((err) => { console.error(err); btn.textContent = 'Rebuild failed — retry'; btn.disabled = false; });
+      doRebuild(() => rerender(true));
     });
     return el('div', { class: 'rebuild-notice' },
       el('span', { class: 'rebuild-hint' }, 'Project changes are saved — rebuild to see them in the journal.'),
@@ -688,7 +725,12 @@
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
     })
       .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
-      .then(({ ok, b }) => { if (!ok) throw new Error((b && b.error) || 'failed'); if (reload) renderProjects(true); return b; })
+      .then(({ ok, b }) => {
+        if (!ok) throw new Error((b && b.error) || 'failed');
+        if (b && 'dirty' in b) markDirty(b.dirty);
+        if (reload) renderProjects(true);
+        return b;
+      })
       .catch((err) => { console.error('projects:', err); if (reload) renderProjects(true); });
   }
 
@@ -864,6 +906,10 @@
 
     document.getElementById('masthead-note').textContent = 'Updated ' + fmt(TODAY).month3 + ' ' + fmt(TODAY).d;
     window.addEventListener('hashchange', route);
+    // The masthead flag: rebuild from anywhere; poll so it stays accurate.
+    if (rebuildFlag) rebuildFlag.addEventListener('click', () => doRebuild(() => route()));
+    pollStatus();
+    setInterval(pollStatus, 9000);
     route();
   }
 
