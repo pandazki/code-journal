@@ -1034,3 +1034,30 @@ button.tile:hover { transform: scale(1.42); position: relative; z-index: 2; }
 }
 .proj-empty { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-mute); font-style: italic; }
 .folder-meta { color: var(--ink-mute); font-family: var(--font-mono); font-size: 0.8rem; font-weight: 400; }
+
+/* --- display-first edit affordances (Settings / Projects) ---------------- */
+.icn { display: inline-flex; align-items: center; line-height: 0; }
+.icn-btn {
+  background: none; border: none; padding: 4px; margin: 0;
+  cursor: pointer; color: var(--ink-mute);
+  display: inline-flex; align-items: center; line-height: 0;
+  border-radius: 5px; vertical-align: middle;
+  transition: color 0.12s, background 0.12s;
+}
+.icn-btn:hover { color: var(--accent); background: color-mix(in oklch, var(--accent) 12%, transparent); }
+.icn-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.field-show { display: inline-flex; align-items: center; gap: 0.35rem; }
+.field-val { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink); }
+.field-val.muted { color: var(--ink-mute); }
+.edit-inline { display: inline-flex; align-items: center; gap: 0.45rem; }
+
+.assign-name { font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent-deep); }
+.assign-add {
+  background: none; border: none; cursor: pointer;
+  color: var(--ink-mute); font-family: var(--font-mono); font-size: 0.82rem;
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.2rem 0.35rem; border-radius: 5px;
+}
+.assign-add:hover { color: var(--accent); }
+.proj-tz-label { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-mute); }

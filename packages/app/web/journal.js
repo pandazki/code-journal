@@ -92,6 +92,23 @@
     return n;
   }
 
+  // Inline lucide-style icons (MIT) — no dependency. Used for the low-frequency
+  // edit affordances on Settings / Projects, so the resting UI is plain text.
+  const SVGS = {
+    pencil: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+    x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+    ungroup: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="m6 18 12-12"/></svg>',
+  };
+  function iconBtn(name, title, onclick) {
+    return el('button', { class: 'icn-btn', title: title, 'aria-label': title, onclick: onclick, html: SVGS[name] });
+  }
+
+  // Which field is mid-edit (so its editor shows instead of plain text). One at
+  // a time; survives the cheap re-render. Keys: `tz:<id>` (project/settings
+  // timezone), `assign:<repoKey>` (folder → project).
+  let editKey = null;
+
   /** The metadata one-liner a day card shows — no LLM, just the facts. */
   function daySummary(d) {
     const span = hrs(d.activeMs);
@@ -553,33 +570,17 @@
         const section = el('section', { class: 'settings' });
         section.append(el('h1', {}, 'Settings'));
         section.append(el('p', { class: 'settings-intro' },
-          'The timezone a project’s day cards and heatmap are reckoned in. ' +
-          'Auto follows this machine’s zone (' + (data.host || 'host') + '). ' +
-          'Stored in ~/.code-journal/journal-settings.json — nothing leaves this machine.'));
+          'The timezone each project reckons its days in. Auto follows this machine’s zone (' +
+          (data.host || 'host') + '). Stored locally — nothing leaves this machine.'));
 
-        const zones = data.zones || [];
         (data.projects || []).forEach((p) => {
-          const sel = el('select', { class: 'tz-select' });
-          const auto = el('option', { value: '' }, 'Auto (host: ' + (data.host || '—') + ')');
-          if (!p.timezone) auto.selected = true;
-          sel.append(auto);
-          zones.forEach((z) => {
-            const o = el('option', { value: z }, z);
-            if (p.timezone === z) o.selected = true;
-            sel.append(o);
-          });
-          const status = el('span', { class: 'tz-status' });
-          sel.addEventListener('change', () => {
-            status.textContent = 'saving…';
-            status.className = 'tz-status';
-            postSetting(p.id, sel.value, status);
-          });
           section.append(el('div', { class: 'settings-row' },
             el('div', { class: 'settings-row-name' }, p.displayName),
-            el('div', { class: 'settings-row-control' }, sel, status)));
-          // Upgrade the native <select> to the searchable custom dropdown — the
-          // zone list is 400+ long. The change listener above still fires.
-          if (window.CJSelect) window.CJSelect.enhance(sel, { searchPlaceholder: 'Filter timezones…' });
+            el('div', { class: 'settings-row-control' }, editableTz({
+              key: 'tz:set:' + p.id, current: p.timezone, host: data.host, zones: data.zones,
+              onPick: (tz) => saveJournalTz(p.id, tz),
+              rerender: renderSettings,
+            }))));
         });
         if (!(data.projects || []).length) {
           section.append(el('p', { class: 'state-sub' }, 'No projects discovered yet.'));
@@ -592,41 +593,63 @@
           el('p', { class: 'state-sub' }, String((err && err.message) || err)))]));
   }
 
-  function postSetting(projectId, timezone, status) {
+  // A timezone field: plain text + a pencil at rest; the searchable dropdown
+  // only appears (and auto-opens) while editing. `key` flags which field is
+  // open; `onPick(tz)` saves; `rerender` redraws the host page.
+  function editableTz(opts) {
+    if (editKey === opts.key) {
+      const sel = el('select', { class: 'tz-select' });
+      const auto = el('option', { value: '' }, 'Auto (host: ' + (opts.host || '—') + ')');
+      if (!opts.current) auto.selected = true;
+      sel.append(auto);
+      (opts.zones || []).forEach((z) => {
+        const o = el('option', { value: z }, z);
+        if (opts.current === z) o.selected = true;
+        sel.append(o);
+      });
+      sel.addEventListener('change', () => { editKey = null; opts.onPick(sel.value); });
+      const wrap = el('span', { class: 'edit-inline' },
+        sel, iconBtn('x', 'Cancel', () => { editKey = null; opts.rerender(); }));
+      if (window.CJSelect) window.CJSelect.enhance(sel, { searchPlaceholder: 'Filter timezones…', autoOpen: true });
+      return wrap;
+    }
+    const label = opts.current ? opts.current : 'Auto · ' + (opts.host || 'host');
+    return el('span', { class: 'field-show' },
+      el('span', { class: 'field-val' + (opts.current ? '' : ' muted') }, label),
+      iconBtn('pencil', 'Change timezone', () => { editKey = opts.key; opts.rerender(); }));
+  }
+
+  function refreshJournal() {
+    return fetch('/api/journal').then((r) => r.json()).then((journal) => {
+      J = journal;
+      projById = new Map(journal.projects.map((p) => [p.projectId, p]));
+      dayMapByProj = new Map(journal.projects.map((p) => [p.projectId, new Map(p.days.map((d) => [d.date, d]))]));
+      activityByDate = new Map(journal.activity.map((a) => [a.date, a]));
+    });
+  }
+
+  function saveJournalTz(projectId, timezone) {
     fetch('/api/journal/settings', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ projectId, timezone }),
     })
-      .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
-      .then(({ ok, b }) => {
-        if (!ok) throw new Error((b && b.error) || 'save failed');
-        status.textContent = 'saved ✓';
-        status.className = 'tz-status ok';
-        // The project was rebuilt server-side — pull the fresh journal so day
-        // buckets reflect the new zone, then re-render this view.
-        return fetch('/api/journal').then((r) => r.json()).then((journal) => {
-          J = journal;
-          projById = new Map(journal.projects.map((p) => [p.projectId, p]));
-          dayMapByProj = new Map(journal.projects.map((p) => [p.projectId, new Map(p.days.map((d) => [d.date, d]))]));
-          activityByDate = new Map(journal.activity.map((a) => [a.date, a]));
-        });
-      })
-      .catch((err) => { status.textContent = 'error: ' + ((err && err.message) || err); status.className = 'tz-status err'; });
+      .then((r) => r.json().then((b) => { if (!r.ok) throw new Error((b && b.error) || 'save failed'); }))
+      .then(refreshJournal)
+      .then(renderSettings)
+      .catch((err) => { console.error(err); renderSettings(); });
   }
 
   // --- projects management -------------------------------------------------
   // Organize discovered folders (git repos) into Projects: code in one place,
   // docs in another, same work → grouped, with one shared config. Structural
   // edits regroup the journal in the background (see /api/projects).
-  function postProjects(body, status, reload) {
-    if (status) { status.textContent = 'saving…'; status.className = 'proj-status'; }
+  function postProjects(body, reload) {
     return fetch('/api/projects', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
     })
       .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
       .then(({ ok, b }) => { if (!ok) throw new Error((b && b.error) || 'failed'); if (reload) renderProjects(); return b; })
-      .catch((err) => { if (status) { status.textContent = 'error: ' + ((err && err.message) || err); status.className = 'proj-status err'; } });
+      .catch((err) => { console.error('projects:', err); if (reload) renderProjects(); });
   }
 
   function renderProjects() {
@@ -640,27 +663,42 @@
         section.append(el('p', { class: 'settings-intro' },
           'Group several folders into one Project — code in one place, docs in another, ' +
           'the same work. A Project carries its own timezone, and the observation lens scans ' +
-          'its folders together. Structural changes regroup the journal in the background.'));
-        const status = el('p', { class: 'proj-status' });
+          'its folders together. Changes regroup the journal in the background.'));
 
         section.append(el('div', { class: 'proj-actions' },
           el('button', { class: 'proj-btn', onclick: () => {
             const name = prompt('New Project name:');
-            if (name && name.trim()) postProjects({ action: 'create', displayName: name.trim() }, status, true);
+            if (name && name.trim()) postProjects({ action: 'create', displayName: name.trim() }, true);
           } }, '+ New Project'),
-          status));
+          data.rebuilding ? el('span', { class: 'proj-status' }, 'journal regrouping…') : null));
 
-        const tzSelect = (current) => {
-          const sel = el('select', { class: 'tz-select' });
-          const auto = el('option', { value: '' }, 'Auto (host: ' + (data.host || '—') + ')');
-          if (!current) auto.selected = true;
-          sel.append(auto);
-          (data.zones || []).forEach((z) => {
-            const o = el('option', { value: z }, z);
-            if (current === z) o.selected = true;
-            sel.append(o);
-          });
-          return sel;
+        // Folder → Project: project name (text) + pencil to move, or "Add to
+        // Project" when unassigned. The picker only appears while editing.
+        const assignField = (f) => {
+          const key = 'assign:' + f.repoKey;
+          const reg = data.projects.find((p) => p.id === f.projectId);
+          if (editKey === key) {
+            const sel = el('select', { class: 'tz-select' });
+            sel.append(el('option', { value: '' }, '— its own project —'));
+            data.projects.forEach((p) => {
+              const o = el('option', { value: p.id }, p.displayName);
+              if (reg && p.id === f.projectId) o.selected = true;
+              sel.append(o);
+            });
+            sel.append(el('option', { value: '__new__' }, '＋ New Project…'));
+            sel.addEventListener('change', () => { const v = sel.value; editKey = null; assignFolder(f.repoKey, v); });
+            const wrap = el('span', { class: 'edit-inline' },
+              sel, iconBtn('x', 'Cancel', () => { editKey = null; renderProjects(); }));
+            if (window.CJSelect) window.CJSelect.enhance(sel, { autoOpen: true });
+            return wrap;
+          }
+          if (reg) {
+            return el('span', { class: 'field-show' },
+              el('span', { class: 'assign-name' }, reg.displayName),
+              iconBtn('pencil', 'Move to another Project', () => { editKey = key; renderProjects(); }));
+          }
+          return el('button', { class: 'assign-add', onclick: () => { editKey = key; renderProjects(); } },
+            el('span', { class: 'icn', html: SVGS.plus }), 'Add to Project');
         };
 
         // ── registered Projects ──
@@ -669,22 +707,23 @@
           data.projects.forEach((p) => {
             const nameInput = el('input', { class: 'proj-name', value: p.displayName });
             nameInput.addEventListener('change', () =>
-              postProjects({ action: 'rename', id: p.id, displayName: nameInput.value }, status, true));
-            const del = el('button', { class: 'proj-del', onclick: () => {
+              postProjects({ action: 'rename', id: p.id, displayName: nameInput.value }, true));
+            const del = iconBtn('ungroup', 'Ungroup — folders go back to separate projects', () => {
               if (confirm('Ungroup “' + p.displayName + '”? Its folders go back to separate projects.'))
-                postProjects({ action: 'delete', id: p.id }, status, true);
-            } }, 'Ungroup');
-            const tz = tzSelect(p.config && p.config.timezone);
-            tz.addEventListener('change', () =>
-              postProjects({ action: 'timezone', id: p.id, timezone: tz.value }, status, true));
+                postProjects({ action: 'delete', id: p.id }, true);
+            });
             const members = (p.members && p.members.length)
               ? p.members.map((m) => el('span', { class: 'proj-chip' }, m.split('/').pop() || m))
               : [el('span', { class: 'proj-empty' }, 'no folders yet — assign some below')];
             section.append(el('div', { class: 'proj-card' },
               el('div', { class: 'proj-card-head' }, nameInput, del),
-              el('div', { class: 'proj-card-row' }, el('label', {}, 'Timezone'), tz),
+              el('div', { class: 'proj-card-row' }, el('span', { class: 'proj-tz-label' }, 'Timezone'),
+                editableTz({
+                  key: 'tz:' + p.id, current: p.config && p.config.timezone, host: data.host, zones: data.zones,
+                  onPick: (tz) => postProjects({ action: 'timezone', id: p.id, timezone: tz }, true),
+                  rerender: renderProjects,
+                })),
               el('div', { class: 'proj-members' }, members)));
-            if (window.CJSelect) window.CJSelect.enhance(tz, { searchPlaceholder: 'Filter timezones…' });
           });
         }
 
@@ -693,32 +732,31 @@
         section.append(el('p', { class: 'settings-intro' },
           'Every git repo with sessions. Assign one to a Project to group it.'));
         (data.folders || []).forEach((f) => {
-          const isRegistered = data.projects.some((p) => p.id === f.projectId);
-          const sel = el('select', { class: 'tz-select' });
-          const own = el('option', { value: '' }, '— its own project —');
-          if (!isRegistered) own.selected = true;
-          sel.append(own);
-          data.projects.forEach((p) => {
-            const o = el('option', { value: p.id }, p.displayName);
-            if (isRegistered && f.projectId === p.id) o.selected = true;
-            sel.append(o);
-          });
-          sel.addEventListener('change', () =>
-            postProjects({ action: 'assign', repoKey: f.repoKey, projectId: sel.value }, status, true));
           section.append(el('div', { class: 'settings-row' },
             el('div', { class: 'settings-row-name' }, f.name,
               el('span', { class: 'folder-meta' }, ' · ' + f.sessionCount + ' sessions')),
-            el('div', { class: 'settings-row-control' }, sel)));
-          if (window.CJSelect) window.CJSelect.enhance(sel);
+            el('div', { class: 'settings-row-control' }, assignField(f))));
         });
 
         mount([crumb([['#/', 'Journal']], 'Projects'), reveal(section, 0)]);
-        if (data.rebuilding) { status.textContent = 'journal regrouping…'; }
       })
       .catch((err) => mount([crumb([['#/', 'Journal']], 'Projects'),
         el('div', { class: 'state' },
           el('p', { class: 'state-line' }, 'Could not load projects.'),
           el('p', { class: 'state-sub' }, String((err && err.message) || err)))]));
+  }
+
+  function assignFolder(repoKey, value) {
+    if (value === '__new__') {
+      const name = prompt('New Project name:');
+      if (!name || !name.trim()) { renderProjects(); return; }
+      postProjects({ action: 'create', displayName: name.trim() }, false)
+        .then((b) => (b && b.id)
+          ? postProjects({ action: 'assign', repoKey, projectId: b.id }, true)
+          : renderProjects());
+      return;
+    }
+    postProjects({ action: 'assign', repoKey, projectId: value }, true);
   }
 
   // --- routing -------------------------------------------------------------
