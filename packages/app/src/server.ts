@@ -125,10 +125,29 @@ export function startServer(
         journal.generatedAt = fresh.generatedAt;
         loadNarratives(journal);
         reindex();
+        tallyCache = null; // new sessions may have landed; refresh the folder list
       } finally {
         rebuilding = false;
       }
     }, 1200);
+  }
+
+  // Folder discovery is expensive (reads every session + a `git` spawn per
+  // distinct cwd — seconds). The repo→session-count tally only changes when new
+  // sessions land on disk, NOT when Projects are reorganized, so cache it and
+  // recompute just the cheap registry overlay on each /api/projects request.
+  // Without this, every create/assign re-ran the full scan (the ~10s lag).
+  let tallyCache: Map<string, number> | null = null;
+  function repoTally(): Map<string, number> {
+    if (tallyCache) return tallyCache;
+    const repoKey = defaultRepoKeyResolver();
+    const t = new Map<string, number>();
+    for (const s of discoverAllSessions()) {
+      const rk = repoKey(s.cwd) ?? s.cwd;
+      t.set(rk, (t.get(rk) ?? 0) + 1);
+    }
+    tallyCache = t;
+    return t;
   }
 
   /**
@@ -137,17 +156,11 @@ export function startServer(
    * journal's own filter so the list isn't drowned by one-off scratch cwds.
    */
   function discoverFolders(): Array<{ repoKey: string; name: string; sessionCount: number; projectId: string }> {
-    const repoKey = defaultRepoKeyResolver();
     const reg = readProjectRegistry();
     const member = new Map<string, string>();
     for (const p of reg.projects) for (const m of p.members) member.set(m, p.id);
-    const tally = new Map<string, number>();
-    for (const s of discoverAllSessions()) {
-      const rk = repoKey(s.cwd) ?? s.cwd;
-      tally.set(rk, (tally.get(rk) ?? 0) + 1);
-    }
     const junk = (name: string) => /^(\.|claude-code-boot)/.test(name);
-    return [...tally.entries()]
+    return [...repoTally().entries()]
       .map(([rk, n]) => ({ repoKey: rk, name: rk.split('/').pop() || rk, sessionCount: n }))
       .filter((f) => member.has(f.repoKey) || (!junk(f.name) && f.sessionCount >= 2))
       .map((f) => ({ ...f, projectId: member.get(f.repoKey) ?? projectIdFor(f.repoKey) }))
