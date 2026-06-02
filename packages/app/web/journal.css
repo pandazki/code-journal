@@ -1061,3 +1061,26 @@ button.tile:hover { transform: scale(1.42); position: relative; z-index: 2; }
 }
 .assign-add:hover { color: var(--accent); }
 .proj-tz-label { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-mute); }
+
+/* --- inline name composer & ghost actions (Projects) --------------------- */
+.proj-btn-ghost {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-family: var(--font-mono); font-size: 0.85rem;
+  color: var(--ink-soft); background: none; border: none; cursor: pointer;
+  padding: 0.3rem 0;
+  transition: color 0.12s;
+}
+.proj-btn-ghost:hover { color: var(--accent); }
+
+.name-composer { display: inline-flex; align-items: center; gap: 0.4rem; }
+.name-input {
+  font-family: var(--font-body); font-size: 1.05rem; font-style: normal;
+  color: var(--ink); background: none; border: none;
+  border-bottom: 1.5px solid var(--rule-strong);
+  padding: 0.2rem 0.1rem; min-width: 15rem; max-width: 60vw;
+}
+.name-input::placeholder { color: var(--ink-mute); font-style: italic; }
+.name-input:focus { outline: none; border-bottom-color: var(--accent); }
+
+.inline-confirm { display: inline-flex; align-items: center; gap: 0.25rem; }
+.confirm-q { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-mute); letter-spacing: 0.02em; }
