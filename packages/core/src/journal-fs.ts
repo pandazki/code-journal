@@ -2,14 +2,14 @@
  * Disk-backed journal assembly — the bridge from the pure journal model
  * (journal.ts) to the user's real coding-agent sessions on disk.
  *
- * One pass: discover every session, group it by git repository (a repo's
- * worktrees fold into one project), drop the throwaways, then run the pure
- * `buildJournal` over what's left.
+ * One pass: discover every session, group it into Projects (via the unified
+ * registry — see projects.ts; a repo's worktrees fold into one Project, and a
+ * user can group several repos under one Project), drop the throwaways, then
+ * run the pure `buildJournal` over what's left.
  */
 import { execFileSync } from 'node:child_process';
-import { basename } from 'node:path';
 
-import { dateInTimezone, hostTimezone } from './datetime';
+import { dateInTimezone } from './datetime';
 import {
   buildJournal,
   buildProjectJournal,
@@ -18,99 +18,44 @@ import {
   type ProjectInput,
   type ProjectJournal,
 } from './journal';
-import { journalProjectTimezone, readJournalSettings } from './journal-settings';
-import { discoverAllSessions, gitRepoKeyOf, readSessionFile, type SessionRef } from './sessions';
-
-/** A project the journal covers — a git repo (or a lone cwd) and its cwds. */
-export interface DiscoveredProject {
-  /** URL-safe, stable id — the repo's basename slug plus a hash of its path */
-  id: string;
-  displayName: string;
-  /** the working directories whose sessions belong to this project */
-  cwds: string[];
-}
-
-/** One project plus the sessions discovered for it. */
-export interface ProjectGroup {
-  project: DiscoveredProject;
-  sessions: SessionRef[];
-  /** the git repo dir (or the bare cwd, when not in a repo) these sessions share */
-  repoKey: string;
-}
-
-/** Names that never represent real project work — boot / healthcheck and hidden dirs. */
-const JUNK_NAME = /^(\.|claude-code-boot)/;
-/** A project needs at least this many sessions to earn a journal entry. */
-const MIN_SESSIONS = 2;
-
-/** FNV-1a, 6 base-36 chars — a short stable suffix that keeps project ids unique. */
-function hash6(s: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(36).padStart(6, '0').slice(-6);
-}
-
-function projectIdFor(repoKey: string): string {
-  const slug = basename(repoKey)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return (slug || 'project') + '-' + hash6(repoKey);
-}
+import { journalProjectTimezone } from './journal-settings';
+import {
+  defaultRepoKeyResolver,
+  groupSessionsByProject,
+  projectConfig,
+  type DiscoveredProject,
+  type ProjectGroup,
+  type ProjectRegistry,
+} from './projects';
+import { discoverAllSessions, readSessionFile } from './sessions';
 
 /**
- * Group sessions into projects by git repository: every session whose cwd
- * resolves to the same repo key lands in one project; the throwaways (boot
- * dirs, hidden dirs, single-session scratch dirs) are dropped.
- *
- * Pure — the repo-key lookup is injected — so it is unit-testable. Ordered by
- * session count, busiest project first.
+ * Back-compat: group sessions by git repo only (no registry). Retained for
+ * existing callers/tests; new code should use `groupSessionsByProject`, which
+ * also honors the user's Project groupings.
  */
 export function groupSessionsByRepo(
-  sessions: readonly SessionRef[],
+  sessions: Parameters<typeof groupSessionsByProject>[0],
   repoKey: (cwd: string) => string | null,
 ): ProjectGroup[] {
-  const buckets = new Map<string, SessionRef[]>();
-  for (const s of sessions) {
-    const key = repoKey(s.cwd) ?? s.cwd;
-    let arr = buckets.get(key);
-    if (!arr) buckets.set(key, (arr = []));
-    arr.push(s);
-  }
-  const out: ProjectGroup[] = [];
-  for (const [key, refs] of buckets) {
-    const name = basename(key) || key;
-    if (JUNK_NAME.test(name) || refs.length < MIN_SESSIONS) continue;
-    out.push({
-      project: {
-        id: projectIdFor(key),
-        displayName: name,
-        cwds: [...new Set(refs.map((r) => r.cwd))].sort(),
-      },
-      sessions: refs,
-      repoKey: key,
-    });
-  }
-  return out.sort((a, b) => b.sessions.length - a.sessions.length);
+  const empty: ProjectRegistry = { version: 1, projects: [] };
+  return groupSessionsByProject(sessions, { registry: empty, repoKey });
 }
 
-/** Scan every session store once and group the result into projects. */
+/** Scan every session store once and group the result into Projects. */
 function discoverGroups(): ProjectGroup[] {
-  const cache = new Map<string, string | null>();
-  const repoKey = (cwd: string): string | null => {
-    let k = cache.get(cwd);
-    if (k === undefined) cache.set(cwd, (k = gitRepoKeyOf(cwd)));
-    return k;
-  };
-  return groupSessionsByRepo(discoverAllSessions(), repoKey);
+  return groupSessionsByProject(discoverAllSessions(), { repoKey: defaultRepoKeyResolver() });
 }
 
-/** Discover every project with local coding-agent sessions, grouped by repo. */
+/** Discover every Project with local coding-agent sessions. */
 export function discoverProjects(): DiscoveredProject[] {
   return discoverGroups().map((g) => g.project);
+}
+
+/** The timezone a Project reckons days in: registry config, then the legacy
+ *  journal-settings.json fallback, then the host zone. */
+function projectTimezone(projectId: string): string {
+  return projectConfig(projectId).timezone || journalProjectTimezone(projectId);
 }
 
 /**
@@ -151,42 +96,46 @@ function collectGitCommits(repoKey: string, tz: string): GitCommit[] {
   return out;
 }
 
+/** Commits across all of a Project's member repos, deduped by sha. */
+function collectProjectCommits(members: readonly string[], tz: string): GitCommit[] {
+  const seen = new Set<string>();
+  const out: GitCommit[] = [];
+  for (const repo of members) {
+    for (const c of collectGitCommits(repo, tz)) {
+      if (seen.has(c.sha)) continue;
+      seen.add(c.sha);
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+function inputFor(group: ProjectGroup): ProjectInput {
+  const timezone = projectTimezone(group.project.id);
+  return {
+    projectId: group.project.id,
+    displayName: group.project.displayName,
+    cwds: group.project.cwds,
+    sessions: group.sessions,
+    commits: collectProjectCommits(group.project.members, timezone),
+    timezone,
+  };
+}
+
 /** Build the whole journal from disk — discovery, grouping, commits, then `buildJournal`. */
 export function buildJournalFromDisk(): Journal {
-  const settings = readJournalSettings();
-  const inputs: ProjectInput[] = discoverGroups().map((g) => {
-    const timezone = journalProjectTimezone(g.project.id, settings);
-    return {
-      projectId: g.project.id,
-      displayName: g.project.displayName,
-      cwds: g.project.cwds,
-      sessions: g.sessions,
-      commits: collectGitCommits(g.repoKey, timezone),
-      timezone,
-    };
-  });
+  const inputs: ProjectInput[] = discoverGroups().map(inputFor);
   return buildJournal(inputs, { loadTranscript: readSessionFile });
 }
 
 /**
- * Rebuild a single project's journal from disk in its (current) timezone —
- * the cheap path the journal server takes when the user changes a project's
+ * Rebuild a single Project's journal from disk in its (current) timezone — the
+ * cheap path the journal server takes when the user changes a Project's
  * timezone in Settings, instead of re-running the whole multi-repo build.
- * Returns null when no discovered project matches `projectId`.
+ * Returns null when no discovered Project matches `projectId`.
  */
 export function rebuildProjectJournal(projectId: string): ProjectJournal | null {
   const group = discoverGroups().find((g) => g.project.id === projectId);
   if (!group) return null;
-  const timezone = journalProjectTimezone(group.project.id);
-  return buildProjectJournal(
-    {
-      projectId: group.project.id,
-      displayName: group.project.displayName,
-      cwds: group.project.cwds,
-      sessions: group.sessions,
-      commits: collectGitCommits(group.repoKey, timezone),
-      timezone,
-    },
-    { loadTranscript: readSessionFile },
-  );
+  return buildProjectJournal(inputFor(group), { loadTranscript: readSessionFile });
 }

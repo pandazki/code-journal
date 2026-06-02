@@ -13,7 +13,7 @@ import { basename, dirname } from 'node:path';
 import {
   discoverAllSessions,
   gitRepoKeyOf,
-  groupSessionsByRepo,
+  groupSessionsByProject,
   type SessionRef,
 } from '@code-journal/core';
 
@@ -81,7 +81,7 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
   }
 
   const sessions = discoverAllSessions();
-  const groups = groupSessionsByRepo(sessions, (cwd) => gitRepoKeyOf(cwd));
+  const groups = groupSessionsByProject(sessions, { repoKey: (cwd) => gitRepoKeyOf(cwd) });
   const inScope = (project: { id: string; displayName: string }): boolean => {
     if (projectFilter.length === 0) return true;
     return projectFilter.some((f) => {
@@ -387,7 +387,7 @@ export async function cmdObservationStatus(rest: string[], _ctx: ObsCliContext):
   const verbose = Boolean(values.verbose);
 
   const sessions = discoverAllSessions();
-  const groups = groupSessionsByRepo(sessions, (cwd) => gitRepoKeyOf(cwd));
+  const groups = groupSessionsByProject(sessions, { repoKey: (cwd) => gitRepoKeyOf(cwd) });
   const targeted = projectFilter
     ? groups.filter((g) => g.project.displayName.toLowerCase().includes(projectFilter))
     : groups;
@@ -452,7 +452,7 @@ export async function cmdObservationStatus(rest: string[], _ctx: ObsCliContext):
 
 function resolveProjectFromArg(arg: string): { id: string; displayName: string } | null {
   const sessions = discoverAllSessions();
-  const groups = groupSessionsByRepo(sessions, (cwd) => gitRepoKeyOf(cwd));
+  const groups = groupSessionsByProject(sessions, { repoKey: (cwd) => gitRepoKeyOf(cwd) });
   // Try exact id match first, then case-insensitive name substring
   const byId = groups.find((g) => g.project.id === arg);
   if (byId) return { id: byId.project.id, displayName: byId.project.displayName };

@@ -13,13 +13,13 @@ import {
   badgeLabel,
   categorize,
   hostTimezone,
-  journalProjectTimezone,
   parseTranscript,
   previewLine,
+  projectConfig,
   readJournalSettings,
   rebuildProjectJournal,
   rollUpActivity,
-  setJournalProjectTimezone,
+  setProjectConfig,
   type Journal,
 } from '@code-journal/core';
 
@@ -109,12 +109,12 @@ export function startServer(
 
     // Journal settings — per-project timezone the day cards / heatmap reckon in.
     if (url.pathname === '/api/journal/settings' && req.method === 'GET') {
-      const settings = readJournalSettings();
+      const legacy = readJournalSettings(); // pre-registry timezones, for fallback
       const projects = journal.projects.map((p) => ({
         id: p.projectId,
         displayName: p.displayName,
         // '' means "auto" (host zone); the UI shows the resolved host zone.
-        timezone: settings[p.projectId]?.timezone ?? '',
+        timezone: projectConfig(p.projectId).timezone || legacy[p.projectId]?.timezone || '',
       }));
       res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
       res.end(JSON.stringify({ projects, zones: supportedTimeZones(), host: hostTimezone() }));
@@ -132,14 +132,26 @@ export function startServer(
             projectId?: string;
             timezone?: string;
           };
-          if (!projectId || !journal.projects.some((p) => p.projectId === projectId)) {
+          const proj = journal.projects.find((p) => p.projectId === projectId);
+          if (!projectId || !proj) {
             res.writeHead(404, { 'content-type': MIME['.json']! });
             res.end(JSON.stringify({ error: 'unknown projectId' }));
             return;
           }
-          // Persist, then rebuild just this project in its new zone and swap it
-          // in — far cheaper than re-running the whole multi-repo discovery.
-          setJournalProjectTimezone(projectId, timezone ?? '');
+          const tz = timezone ?? '';
+          if (tz) {
+            try {
+              new Intl.DateTimeFormat('en-US', { timeZone: tz });
+            } catch {
+              res.writeHead(400, { 'content-type': MIME['.json']! });
+              res.end(JSON.stringify({ error: `unknown timezone: ${tz}` }));
+              return;
+            }
+          }
+          // Persist to the unified Project registry, then rebuild just this
+          // project in its new zone and swap it in — far cheaper than re-running
+          // the whole multi-repo discovery.
+          setProjectConfig(projectId, { timezone: tz }, proj.displayName);
           const rebuilt = rebuildProjectJournal(projectId);
           if (!rebuilt) {
             res.writeHead(404, { 'content-type': MIME['.json']! });
@@ -154,7 +166,7 @@ export function startServer(
           reindex();
           res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
           res.end(
-            JSON.stringify({ ok: true, projectId, timezone: journalProjectTimezone(projectId) }),
+            JSON.stringify({ ok: true, projectId, timezone: projectConfig(projectId).timezone || '' }),
           );
         } catch (err) {
           res.writeHead(400, { 'content-type': MIME['.json']! });

@@ -9,10 +9,11 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { setProjectConfig, type ProjectConfig } from '@code-journal/core';
+
 import {
   observationsRoot,
   readProjectState,
-  writeProjectState,
   readSignals,
   episodeMetadataPath,
   LENS_IDS,
@@ -184,30 +185,36 @@ export function setConfig(patch: ConfigPatch): {
   const root = observationsRoot();
   if (!existsSync(join(root, id))) throw new Error(`no project '${id}'`);
 
-  const state = readProjectState(id, id);
+  // Validate, then persist to the unified Project registry (the single config
+  // home — core/projects.ts). readProjectState overlays it back, so the
+  // observation pipeline and the journal both read one source of truth.
+  const before = readProjectState(id, id);
+  const cfg: ProjectConfig = {};
   if (patch.model !== undefined) {
     const m = String(patch.model);
     if (m !== 'sonnet' && m !== 'opus') throw new Error(`invalid model '${m}' (sonnet | opus)`);
-    state.config.model = m;
+    cfg.model = m;
   }
   if (patch.compose_threshold !== undefined) {
     const n = Math.floor(Number(patch.compose_threshold));
     if (!Number.isFinite(n) || n < 1 || n > 999) throw new Error('compose_threshold must be 1–999');
-    state.config.compose_threshold = n;
+    cfg.composeThreshold = n;
   }
   if (patch.analysis_language !== undefined) {
     const v = String(patch.analysis_language);
     if (v === 'auto') {
       // hand control back to detection; next sync (re)infers the language
-      state.config.analysis_language_auto = true;
+      cfg.language = '';
+      cfg.languageAuto = true;
     } else if (isLanguageCode(v)) {
-      state.config.analysis_language = v;
-      state.config.analysis_language_auto = false; // pinned by the user
+      cfg.language = v;
+      cfg.languageAuto = false; // pinned by the user
     } else {
       throw new Error(`invalid analysis_language '${v}'`);
     }
   }
-  writeProjectState(state);
+  setProjectConfig(id, cfg, before.display_name || id);
+  const state = readProjectState(id, id); // re-read with the registry overlaid
   return {
     ok: true,
     model: state.config.model,
