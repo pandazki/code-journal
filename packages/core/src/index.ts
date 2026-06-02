@@ -15,6 +15,7 @@ export * from './storage';
 export * from './reports';
 export * from './sessions';
 export * from './transcript';
+export * from './projects';
 export * from './journal';
 export * from './journal-fs';
 export * from './journal-settings';
