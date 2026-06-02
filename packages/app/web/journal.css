@@ -964,3 +964,73 @@ button.tile:hover { transform: scale(1.42); position: relative; z-index: 2; }
 }
 .tz-status.ok { color: var(--accent-deep); }
 .tz-status.err { color: var(--accent); }
+
+/* --- projects management ------------------------------------------------- */
+.proj-actions { display: flex; align-items: center; gap: 1rem; margin: 0.5rem 0 1.5rem; }
+.proj-btn {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--paper);
+  background: var(--accent);
+  border: none;
+  border-radius: 5px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+.proj-btn:hover { background: var(--accent-deep); }
+.proj-status { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-mute); margin: 0; }
+.proj-status.err { color: var(--accent); }
+.proj-h2 {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--ink);
+  margin: 1.8rem 0 0.3rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1.5px solid var(--rule-strong);
+}
+.proj-card {
+  border: 1.5px solid var(--rule);
+  border-radius: 7px;
+  padding: 0.85rem 1rem;
+  margin: 0.8rem 0;
+  background: var(--paper-raised);
+}
+.proj-card-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.proj-name {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid transparent;
+  flex: 1;
+  min-width: 0;
+}
+.proj-name:hover { border-bottom-color: var(--rule); }
+.proj-name:focus { outline: none; border-bottom-color: var(--accent); }
+.proj-del {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink-mute);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.25rem 0.55rem;
+  cursor: pointer;
+  flex: none;
+}
+.proj-del:hover { color: var(--accent); border-color: var(--accent); }
+.proj-card-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; }
+.proj-card-row label { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-mute); }
+.proj-members { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+.proj-chip {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+.proj-empty { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-mute); font-style: italic; }
+.folder-meta { color: var(--ink-mute); font-family: var(--font-mono); font-size: 0.8rem; font-weight: 400; }

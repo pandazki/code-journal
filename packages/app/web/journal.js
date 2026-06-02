@@ -615,6 +615,112 @@
       .catch((err) => { status.textContent = 'error: ' + ((err && err.message) || err); status.className = 'tz-status err'; });
   }
 
+  // --- projects management -------------------------------------------------
+  // Organize discovered folders (git repos) into Projects: code in one place,
+  // docs in another, same work → grouped, with one shared config. Structural
+  // edits regroup the journal in the background (see /api/projects).
+  function postProjects(body, status, reload) {
+    if (status) { status.textContent = 'saving…'; status.className = 'proj-status'; }
+    return fetch('/api/projects', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    })
+      .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
+      .then(({ ok, b }) => { if (!ok) throw new Error((b && b.error) || 'failed'); if (reload) renderProjects(); return b; })
+      .catch((err) => { if (status) { status.textContent = 'error: ' + ((err && err.message) || err); status.className = 'proj-status err'; } });
+  }
+
+  function renderProjects() {
+    mount([crumb([['#/', 'Journal']], 'Projects'),
+      el('div', { class: 'state' }, el('p', { class: 'state-line' }, 'Loading projects…'))]);
+    fetch('/api/projects')
+      .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then((data) => {
+        const section = el('section', { class: 'settings' });
+        section.append(el('h1', {}, 'Projects'));
+        section.append(el('p', { class: 'settings-intro' },
+          'Group several folders into one Project — code in one place, docs in another, ' +
+          'the same work. A Project carries its own timezone, and the observation lens scans ' +
+          'its folders together. Structural changes regroup the journal in the background.'));
+        const status = el('p', { class: 'proj-status' });
+
+        section.append(el('div', { class: 'proj-actions' },
+          el('button', { class: 'proj-btn', onclick: () => {
+            const name = prompt('New Project name:');
+            if (name && name.trim()) postProjects({ action: 'create', displayName: name.trim() }, status, true);
+          } }, '+ New Project'),
+          status));
+
+        const tzSelect = (current) => {
+          const sel = el('select', { class: 'tz-select' });
+          const auto = el('option', { value: '' }, 'Auto (host: ' + (data.host || '—') + ')');
+          if (!current) auto.selected = true;
+          sel.append(auto);
+          (data.zones || []).forEach((z) => {
+            const o = el('option', { value: z }, z);
+            if (current === z) o.selected = true;
+            sel.append(o);
+          });
+          return sel;
+        };
+
+        // ── registered Projects ──
+        if (data.projects.length) {
+          section.append(el('h2', { class: 'proj-h2' }, 'Your Projects'));
+          data.projects.forEach((p) => {
+            const nameInput = el('input', { class: 'proj-name', value: p.displayName });
+            nameInput.addEventListener('change', () =>
+              postProjects({ action: 'rename', id: p.id, displayName: nameInput.value }, status, true));
+            const del = el('button', { class: 'proj-del', onclick: () => {
+              if (confirm('Ungroup “' + p.displayName + '”? Its folders go back to separate projects.'))
+                postProjects({ action: 'delete', id: p.id }, status, true);
+            } }, 'Ungroup');
+            const tz = tzSelect(p.config && p.config.timezone);
+            tz.addEventListener('change', () =>
+              postProjects({ action: 'timezone', id: p.id, timezone: tz.value }, status, true));
+            const members = (p.members && p.members.length)
+              ? p.members.map((m) => el('span', { class: 'proj-chip' }, m.split('/').pop() || m))
+              : [el('span', { class: 'proj-empty' }, 'no folders yet — assign some below')];
+            section.append(el('div', { class: 'proj-card' },
+              el('div', { class: 'proj-card-head' }, nameInput, del),
+              el('div', { class: 'proj-card-row' }, el('label', {}, 'Timezone'), tz),
+              el('div', { class: 'proj-members' }, members)));
+            if (window.CJSelect) window.CJSelect.enhance(tz, { searchPlaceholder: 'Filter timezones…' });
+          });
+        }
+
+        // ── folders ──
+        section.append(el('h2', { class: 'proj-h2' }, 'Folders'));
+        section.append(el('p', { class: 'settings-intro' },
+          'Every git repo with sessions. Assign one to a Project to group it.'));
+        (data.folders || []).forEach((f) => {
+          const isRegistered = data.projects.some((p) => p.id === f.projectId);
+          const sel = el('select', { class: 'tz-select' });
+          const own = el('option', { value: '' }, '— its own project —');
+          if (!isRegistered) own.selected = true;
+          sel.append(own);
+          data.projects.forEach((p) => {
+            const o = el('option', { value: p.id }, p.displayName);
+            if (isRegistered && f.projectId === p.id) o.selected = true;
+            sel.append(o);
+          });
+          sel.addEventListener('change', () =>
+            postProjects({ action: 'assign', repoKey: f.repoKey, projectId: sel.value }, status, true));
+          section.append(el('div', { class: 'settings-row' },
+            el('div', { class: 'settings-row-name' }, f.name,
+              el('span', { class: 'folder-meta' }, ' · ' + f.sessionCount + ' sessions')),
+            el('div', { class: 'settings-row-control' }, sel)));
+          if (window.CJSelect) window.CJSelect.enhance(sel);
+        });
+
+        mount([crumb([['#/', 'Journal']], 'Projects'), reveal(section, 0)]);
+        if (data.rebuilding) { status.textContent = 'journal regrouping…'; }
+      })
+      .catch((err) => mount([crumb([['#/', 'Journal']], 'Projects'),
+        el('div', { class: 'state' },
+          el('p', { class: 'state-line' }, 'Could not load projects.'),
+          el('p', { class: 'state-sub' }, String((err && err.message) || err)))]));
+  }
+
   // --- routing -------------------------------------------------------------
   function go(hash) { location.hash = hash; }
 
@@ -624,6 +730,7 @@
     if (parts[0] === 'project' && parts[1]) renderProject(parts[1]);
     else if (parts[0] === 'day' && parts[1] && parts[2]) renderDay(parts[1], parts[2]);
     else if (parts[0] === 'transcript' && parts[1]) renderTranscript(parts[1]);
+    else if (parts[0] === 'projects') renderProjects();
     else if (parts[0] === 'settings') renderSettings();
     else renderOverview();
   }
