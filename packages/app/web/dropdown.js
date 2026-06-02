@@ -159,6 +159,9 @@
     });
 
     var inst = { root: root, trigger: trigger, close: close };
+    // Reveal-then-pick: callers that show the control only while editing can
+    // open it immediately so the user lands in the list.
+    if (opts.autoOpen) setTimeout(show, 0);
     return root;
   }
 
