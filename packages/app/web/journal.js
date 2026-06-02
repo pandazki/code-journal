@@ -577,6 +577,9 @@
           section.append(el('div', { class: 'settings-row' },
             el('div', { class: 'settings-row-name' }, p.displayName),
             el('div', { class: 'settings-row-control' }, sel, status)));
+          // Upgrade the native <select> to the searchable custom dropdown — the
+          // zone list is 400+ long. The change listener above still fires.
+          if (window.CJSelect) window.CJSelect.enhance(sel, { searchPlaceholder: 'Filter timezones…' });
         });
         if (!(data.projects || []).length) {
           section.append(el('p', { class: 'state-sub' }, 'No projects discovered yet.'));
