@@ -426,6 +426,9 @@ function renderSettings(data) {
       }
     });
   });
+  // Upgrade the language / model <select>s to the styled dropdown. They keep
+  // their data-k + value, so the Save handlers above read them unchanged.
+  if (window.CJSelect) window.CJSelect.enhanceAll(main);
   stagger();
 }
 
