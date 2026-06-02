@@ -161,6 +161,14 @@ export function startServer(
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
 
+    // Tiny status poll — whether the journal is stale w.r.t. Project edits.
+    // Cheap (no scan), so the masthead flag can poll it.
+    if (url.pathname === '/api/status') {
+      res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ dirty: registryDirty }));
+      return;
+    }
+
     if (url.pathname === '/api/journal') {
       res.writeHead(200, { 'content-type': MIME['.json']!, 'cache-control': 'no-store' });
       res.end(payload);
