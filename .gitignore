@@ -15,6 +15,9 @@ server/data/
 # code-journal local state (when a dev runs the tool inside the repo)
 .code-journal/
 
+# Pneuma session state (local handoff artifacts)
+.pneuma/
+
 # OS / editor
 .DS_Store
 *.swp
