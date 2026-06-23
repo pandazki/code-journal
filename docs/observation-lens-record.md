@@ -58,7 +58,7 @@ plausible-but-flat,那"丰富"的日志只是把 plausible 整齐摊开**。
               + 第一次 Phase 1 实验(3 项目 × 2 lens × subagent 隔离)
               + 双语 Phase 1 报告
 2026-05-27    Phase 2 实验组(E1-E7,7 项实验)
-              + MVP-II 工程规划(docs/plans/mvp-ii.md)
+              + MVP-II 工程规划(docs/archive/plans/mvp-ii.md)
 2026-05-28    MVP-II 实现(M1-M7,7 个工程 milestone,53 单元测试)
               + 在 6 个真实项目上跑 smoke test
               + 4 个项目产出 Episode 1 audit
@@ -102,10 +102,10 @@ packages/cli/src/observation.ts               new sync / compose / status
 
 scripts/recharacterize-lens.mjs               variance helper for lens bumps
 
-docs/plans/mvp-ii.md                          engineering plan
-docs/plans/mvp-ii-operations.md               cron + ops runbook
-docs/plans/mvp-ii-smoke-test-results.md       cross-project numbers
-docs/plans/mvp-ii-reflective-summary.md       what stuck after running
+docs/archive/plans/mvp-ii.md                          engineering plan
+docs/archive/plans/mvp-ii-operations.md               cron + ops runbook
+docs/archive/plans/mvp-ii-smoke-test-results.md       cross-project numbers
+docs/archive/plans/mvp-ii-reflective-summary.md       what stuck after running
 docs/observation-lens-record.md               (this file)
 
 experiments/observation-lens-v1/              Phase 1 artifacts
@@ -138,7 +138,7 @@ experiments/observation-lens-v2/              Phase 2 artifacts (E1-E7)
 | F5 | **anchored deferral 四姿态** + anchor density 是 agent feature | smoke test 上 4 项目 anchor density 0.29-1.56/100T,**同 user 跨项目大幅波动**说明它是 agent + project 特征,不是 user 属性 | 🟢 Strong |
 | F6 | **empty-state 必须显式** | Phase 2 E2: 4/4 零信号 scan 正确返回 empty-state;smoke test 上 nemori 9 session + desktop-sprite 部分 session,**0 编造** | 🟢 Strong |
 | F7 | **两 lens 互补不冗余** | Phase 1: 12-25% overlap;Phase 2: 67% primary-turn overlap;smoke test: **17%-100% range across projects** — 互补性成立但**机制不止一种**,见 S5 | 🟡 Tentative — 设计成立,但具体 mechanism 至少 2 种,需更多数据分类 |
-| F8 | **命运追踪 + 事件不可删** (§ 8) | schema 字段全到位、单元测试覆盖 append-only + fate 追加;但**没真数据上填过 fate** | 🔵 Inferred — 工程就位,行为未验 |
+| F8 | **命运追踪 + 事件不可删** (§ 8) | 2026-06-22 全链路打通:前置 bug 修(S8,disjoint)→ 检测器原型验(v4,precision+recall)→ **已 productionize**:`fate-runner.ts` 在 compose 前作为独立阶段跑 grounded 子 agent(所有既往 episode 事件 × 新 episode digest),双侧引用 gate 后 `addFateUpdate` 写回旧事件,compose 渲染且**保持确定性**(Option B)。真实数据端到端跑通(pneuma-skills Ep2:检测器跑了、0 命中、"(none surfaced)"、无幻觉写入)。事件 append-only 成立 | 🟢 已 productionize + 真实端到端;真实正例 recall 仍待 |
 | F9 | **二阶可预测性** (§ 9) | Phase 2 E6 在 6 个 pneuma-skills session 上看到 anchor 双峰(73% 命中前 / 后 20%);smoke test ⚫ **部分反转** — 单 episode 内 quintile shape 不是双峰,project-phase 相关 | 🟡 Tentative,且 P2/S6 表明 framework 描述需 narrow |
 | F10 | **§ 14.1 ceiling** — precision 可测,recall 难测 | Phase 2 E7 reader proxy 揭示了 audit 的 6 个真实 gap(代码细节、外部上下文等);这条 ceiling 本身**被设计正确识别** | 🟢 Strong — meta 层成立 |
 
@@ -163,6 +163,8 @@ experiments/observation-lens-v2/              Phase 2 artifacts (E1-E7)
 | S5 | **lens convergence 可以低到 17%** — 揭示 user-driven pivot mode | omne-next 6 strict events 中只有 1 个落在 deferral anchor 上 | 🟡 Tentative — n=1 项目,但**质上不同的 mode**,需 replication 验证它是稳定 mode 还是 outlier |
 | S6 | **anchor position M6 quintile 形状是 project-phase-dependent** | code-journal [16,0,0,0,0] front;pneuma-skills [1,2,10,0,1] middle;omne-next/tanka 平均 | 🟡 Tentative — 4 单 episode 观察,反转了 P2 的 universality;需多 episode 数据看真实形状 |
 | S7 | **多 agent 自动浮现** | smoke test 上 4 项目 agent_seen 同时包含 claude-code + codex | 🟢 Strong — pipeline 正确 |
+| V4 | **Fate 检测器原型在真实 disjoint 数据上成立** ✅ 2026-06-22 | grounded 子 agent(Ep1 audit = watch list × Ep2 digests),双侧引用否则跳过。**空跑**(pneuma-skills Ep1↔Ep2 真实数据):0 个 fate —— 两 episode 是不同 feature stream(强化 P4);且检测器**正确挡掉**唯一诱人的假阳(cosmos `excerpt` 其实是 grep "byte-identical" 偶然命中一条既存 CHANGELOG，连 orchestrator 第一遍都被骗了)。**合成正例**(把 Ep1 的 T706 被忽略搁置项做成"后来真做了"的 fixture，混入真实 distractor，子 agent 不知情):精确命中 T706→taken-up、双侧 grounded、distractor 全 null。→ precision + recall 双轴验证;但真实正例 recall 仍未测(正例是合成的)。详见 `experiments/observation-lens-v4-fate/README.md` | 🟢 方法成立;真实正例 + productionize 待做 |
+| S8 | **Episode 不是 disjoint period — compose 每次重审整个 store** ✅ **已修 2026-06-22** | 发现:Episode 2 `source_signals` 是 Episode 1 的严格超集(18 重现 + 7 新),window 起点不前移,`compose.ts` 无 since 过滤、注释自承 "re-audits the ENTIRE append-only store"。**修法**:compose 现按 low-water mark 过滤——以"所有既往 episode JSON 的 `source_signals[].event_ids` 之并"为已 compose 集,只 compose 新切片(`readComposedEventIds`,无 schema 变更/无迁移)。**真数据验证**:回滚 forced Ep2 后重 compose,Ep2 只覆盖 7 个新 event、E1∩E2=0、window 前移到 2026-06-10→06-15。回归测试:`compose.test.ts` "episodes are disjoint"。后果全部解除:fate 现有真实 prior/new 分区(虽检测仍待建)、M6 跨 episode 现为独立样本、episode 平铺 | 🟢 Strong — 实跑 + 源码确认 + fix 后真数据复验 |
 
 ---
 
@@ -217,7 +219,7 @@ Audits 在 `~/.code-journal/observations/<pid>/episodes/1-2026-05-28.md`
 
 | Item | 缺什么 |
 |------|--------|
-| **§ 8 fate tracking 在真实数据上** | 每个项目目前只有 Episode 1。Episode 2+ 才能看 fate 演化 |
+| ~~**§ 8 fate tracking 在真实数据上**~~ | ✅ 2026-06-22 已测(pneuma-skills Ep2)。**不是时间问题** — 自动检测未实现且 compose 重审整个 store,fate 结构性恒为空(见 S8 / F8)。先修 compose 分区 + 建 fate 检测,才谈得上"真数据测 fate" |
 | **§ 9 二阶可预测性 残差时间序列** | 需要 3+ 月连续 MVP-II 运行的 episodes |
 | **真人 future-self 读自己 6 个月前的 audit 能否 reconstruct** | 需要时间 |
 | **anchor density / stance shape 是否会随 user 变化** | 同一 (user, project) 在不同时段对照才有意义 |
@@ -254,6 +256,7 @@ Audits 在 `~/.code-journal/observations/<pid>/episodes/1-2026-05-28.md`
 | **omne-next 17% 收敛率** | 框架的两 lens 在 debug-driven workflow 下不够;可能需要第三条 lens 在 AI 没暴露决策点时也能照出 user pivot |
 | **每个 episode 内 M6 quintile shape 随项目阶段变** | 框架的"anchor 双峰"叙述需要 narrow 到"跨 session 聚合"层级 |
 | **多 agent 项目里 claude-code 与 codex 的事件比例可能不均衡** | 当前 audit 把两 agent 的 events 合并,**没分 agent 报 stance shape** — 这是 H5 的具体测试,但目前 schema 已支持,只是 composer 没渲染 |
+| **语言自动检测会翻转已确立的项目** | 2026-06-22:pneuma-skills 这次 sync 把分析语言从 中文 自动翻成 English(`was 中文`),导致 Episode 2 出现**混合语言** audit — scaffold/标题英文,event 正文中文。char-script 启发式在双语用户上不稳;auto-detect 不应在已有 episode 的项目上中途改语言(应只在首扫定一次,之后仅 Settings 手改) |
 
 ---
 
@@ -291,10 +294,10 @@ Phase 1 + 2 一直观察到 50%-100% 的 strict / deferral 同 turn 重叠率。
 - `experiments/observation-lens-v1/NOTES-v2-wrap-up.md` — v1 → v2 punch list 落地
 - `experiments/observation-lens-v2/report.md` — Phase 2 E1-E7 report
 - `experiments/observation-lens-v2/report-bilingual.md` — Phase 2 双语
-- `docs/plans/mvp-ii.md` — MVP-II 工程规划
-- `docs/plans/mvp-ii-operations.md` — cron + ops runbook
-- `docs/plans/mvp-ii-smoke-test-results.md` — smoke test 数字
-- `docs/plans/mvp-ii-reflective-summary.md` — smoke test 感性总结
+- `docs/archive/plans/mvp-ii.md` — MVP-II 工程规划
+- `docs/archive/plans/mvp-ii-operations.md` — cron + ops runbook
+- `docs/archive/plans/mvp-ii-smoke-test-results.md` — smoke test 数字
+- `docs/archive/plans/mvp-ii-reflective-summary.md` — smoke test 感性总结
 - `docs/observation-lens-record.md` — **本文件**
 
 ### 代码
@@ -322,13 +325,9 @@ Phase 1 + 2 一直观察到 50%-100% 的 strict / deferral 同 turn 重叠率。
 
 ### Tier 1 · 短期(几周)就能做 · cheap and high signal
 
-1. **跑 Episode 2** — 任一 active project 隔一周再跑一次 `sync` + `compose`,
-   看 Episode 2 是否在 Episode 1 events 上检测到 fate。这是 § 8 fate
-   tracking 的**第一次真实数据测试**。零工程成本。
+1. ~~**跑 Episode 2 + 修 compose 窗口**~~ — ✅ **2026-06-22 全部做完**。跑了 Ep2(`--limit 5` sync → 7 新 events),发现 fate 不浮出是结构性的(compose 重审整个 store),**当场修了**:episode 现 disjoint,真数据复验 E1∩E2=0、window 前移(S8)。**下一个 fate 具体工**:写 fate 检测器(topic-coherent arc:把新 episode 事件与既往 episode 事件做关联)+ `code-journal fate add` 用户入口(见 #3)。
 
-2. **跨 episode 看 M6 quintile shape 是否稳定** — 4 个项目各 3-4 个 Episode 后,
-   M6 shape 是否在项目内重复。能区分:S6(shape 是项目特征)vs P2(shape 是 framework 普适)
-   到底哪个对。
+2. **跨 episode 看 M6 quintile shape 是否稳定** — ✅ **现在测得了**(#1 修完后 episode 独立)。首个真数据点:pneuma-skills E1 [5,1,3,1,3] vs E2 [0,1,0,1,1] —— 已是独立样本。再攒 2-3 个 episode 即可判 S6(项目特征)vs P2(framework 普适)。
 
 3. **写 user fate annotation 入口** — 把 `code-journal fate add --event <id> --note "..."`
    实现,让你读完 audit 不爽时有地方说。U5 缺口。
