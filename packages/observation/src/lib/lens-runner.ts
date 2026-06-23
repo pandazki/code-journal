@@ -169,7 +169,28 @@ type DispatchOutcome =
  */
 const MAX_PROMPT_CHARS = 600_000;
 
-type RawOutcome = { ok: true; text: string } | { ok: false; reason: string };
+export type RawOutcome = { ok: true; text: string } | { ok: false; reason: string };
+
+/**
+ * Raw agent dispatch (size-guarded), shared with the cross-episode fate runner.
+ * Returns the agent's raw final text — the caller parses it. Same isolation +
+ * oversize guarantees as a lens pass.
+ */
+export function dispatchToAgent(
+  prompt: string,
+  opts: { engine?: LensEngine; model?: 'sonnet' | 'opus'; timeoutMs?: number },
+): RawOutcome {
+  const timeoutMs = opts.timeoutMs ?? 600_000;
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    return {
+      ok: false,
+      reason: `prompt too large for a single agent pass: ${prompt.length} chars > ${MAX_PROMPT_CHARS} limit`,
+    };
+  }
+  return (opts.engine ?? 'claude') === 'codex'
+    ? runCodex(prompt, timeoutMs)
+    : runClaude(prompt, opts.model ?? 'sonnet', timeoutMs);
+}
 
 function dispatchAndParse(prompt: string, args: RunLensArgs): DispatchOutcome {
   const timeoutMs = args.timeoutMs ?? 600_000;
@@ -375,7 +396,7 @@ Apply the lens to the digest. Emit one JSON object per the schema. Strict JSON o
 ${reminderLine}`;
 }
 
-function stripFencing(s: string): string {
+export function stripFencing(s: string): string {
   // Models sometimes wrap output in ```json ... ``` despite explicit
   // instructions; strip lightly.
   const trimmed = s.trim();
