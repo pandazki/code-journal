@@ -278,39 +278,49 @@ describe('compose · end-to-end with synthetic events', () => {
     }
   });
 
-  it('fate-updates section says "(none surfaced)" from episode 2 onward when empty', () => {
-    seedDigest([{ id: 10, role: 'assistant', ts: '2026-05-28T10:00:00Z' }]);
+  it('episodes are disjoint — Episode 2 covers only events Episode 1 did not', () => {
+    seedDigest([
+      { id: 10, role: 'assistant', ts: '2026-05-28T10:00:00Z' },
+      { id: 20, role: 'assistant', ts: '2026-05-28T10:05:00Z' },
+    ]);
     let state = readProjectState(PID, 'Sequence');
     const ev1 = mkEvent({ turn_anchor: 'T10' });
     appendSignals(PID, ev1.lens_id, [ev1]);
-    let r1 = composeAudit({ state });
+    const r1 = composeAudit({ state });
     assert.equal(r1.ok, true);
     if (!r1.ok) return;
+    const ep1Ids = r1.episode.source_signals.flatMap((s) => s.event_ids);
+    assert.deepEqual(ep1Ids, [ev1.id], 'Episode 1 covers ev1');
 
-    // Second compose. Simulate sync having appended a new event: bump the
-    // counter so the no-new-events guard lets the recompose through (sync does
-    // this in the real flow; this test drives compose directly).
+    // Sync appends a second event into the same append-only store.
     state = readProjectState(PID, 'Sequence');
     const ev2 = mkEvent({ turn_anchor: 'T20' });
     appendSignals(PID, ev2.lens_id, [ev2]);
-    state.new_events_since_last_compose = 1;
-    let r2 = composeAudit({ state });
+    const r2 = composeAudit({ state });
     assert.equal(r2.ok, true);
     if (!r2.ok) return;
+
+    // The core of the fix: Episode 2's source_signals is the NEW slice only —
+    // ev2 present, ev1 (already composed by Episode 1) excluded. Before the
+    // fix, compose re-pulled the whole store and ep2 would have cited both.
+    const ep2Ids = r2.episode.source_signals.flatMap((s) => s.event_ids);
+    assert.deepEqual(ep2Ids, [ev2.id], 'Episode 2 covers only the uncomposed event');
+    assert.ok(!ep2Ids.includes(ev1.id), 'Episode 2 must not re-pull Episode 1 events');
+
+    // Fate is genuinely empty now (disjoint), not empty-because-re-audited.
     assert.ok(r2.markdown.includes('(none surfaced'));
   });
 
-  it('skips a duplicate recompose when no new events since last episode', () => {
+  it('skips a recompose when no new events since last episode — even under --force', () => {
     seedDigest([{ id: 10, role: 'assistant', ts: '2026-05-28T10:00:00Z' }]);
     let state = readProjectState(PID, 'Dup');
     const ev = mkEvent({ turn_anchor: 'T10' });
     appendSignals(PID, ev.lens_id, [ev]);
-    state.new_events_since_last_compose = 1;
     const r1 = composeAudit({ state });
     assert.equal(r1.ok, true);
 
-    // Re-read state (counter now 0, one episode on record) and compose again
-    // with no new events — must skip rather than emit a duplicate episode.
+    // Re-read state (one episode on record) and compose again with no new
+    // events — must skip rather than emit a duplicate episode.
     state = readProjectState(PID, 'Dup');
     const r2 = composeAudit({ state });
     assert.equal(r2.ok, false);
@@ -318,12 +328,17 @@ describe('compose · end-to-end with synthetic events', () => {
       assert.equal(r2.skipped, true);
       assert.ok(r2.reason.includes('no new events'));
     }
-    assert.equal(readProjectState(PID, 'Dup').episodes.length, 1, 'no second episode written');
 
-    // --force overrides the guard and composes Episode 2.
+    // Under the disjoint-episode model `force` no longer re-pulls a prior
+    // episode's events, so it cannot fabricate a duplicate Episode 2 from an
+    // empty new slice — it skips too.
     const r3 = composeAudit({ state, force: true });
-    assert.equal(r3.ok, true);
-    if (r3.ok) assert.equal(r3.episode.episode, 2);
+    assert.equal(r3.ok, false, 'force does not re-pull already-composed events');
+    assert.equal(
+      readProjectState(PID, 'Dup').episodes.length,
+      1,
+      'no second episode written',
+    );
   });
 
   it('rendered file path matches episode metadata audit_path', () => {

@@ -26,6 +26,7 @@ import {
   readProjectState,
   writeProjectState,
   runLens,
+  detectAndApplyFates,
   checkEventGrounding,
   turnsFromDigest,
   detectLanguage,
@@ -48,6 +49,37 @@ interface ObsCliContext {
   cwd: string;
 }
 
+/**
+ * Cross-episode fate detection — the side-effecting phase that runs before the
+ * deterministic composer (Option B). Appends grounded fates onto prior events;
+ * compose then surfaces them. Best-effort: a failure is logged but never blocks
+ * the episode from composing.
+ */
+function runFateDetection(
+  state: ProjectState,
+  engine: LensEngine,
+  label: string,
+  verbose = false,
+): void {
+  const r = detectAndApplyFates({
+    state,
+    engine,
+    model: state.config.model,
+    analysisLanguage: languagePromptName(state.config.analysis_language),
+  });
+  if (!r.ok) {
+    process.stderr.write(`[${label}] fate detection failed (episode still composes): ${r.reason}\n`);
+    return;
+  }
+  if (r.applied > 0) {
+    process.stdout.write(
+      `[${label}] fate: ${r.applied} update${r.applied === 1 ? '' : 's'} surfaced from ${r.checkedPrior} prior events\n`,
+    );
+  } else if (verbose) {
+    process.stdout.write(`[${label}] fate: none surfaced (${r.checkedPrior} prior events checked)\n`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // sync
 // ---------------------------------------------------------------------------
@@ -63,6 +95,10 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
       // Which coding-agent CLI applies the lenses: 'claude' (default) or
       // 'codex' (typically faster). Codex ignores the per-project model.
       engine: { type: 'string' },
+      // Scan order for picking the --limit slice: 'recent' (default — newest
+      // unscanned first) or 'oldest' (oldest first, for backfilling a project's
+      // history chronologically so episodes form earliest → latest).
+      order: { type: 'string' },
     },
     allowPositionals: false,
   });
@@ -77,6 +113,11 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
   const limit = values.limit != null ? Math.max(1, Number(values.limit)) : Infinity;
   if (values.limit != null && !Number.isFinite(Number(values.limit))) {
     process.stderr.write(`sync: invalid --limit '${values.limit}'\n`);
+    return 2;
+  }
+  const order = (values.order as string | undefined) ?? 'recent';
+  if (order !== 'recent' && order !== 'oldest') {
+    process.stderr.write(`sync: invalid --order '${order}' (use 'recent' or 'oldest')\n`);
     return 2;
   }
 
@@ -109,14 +150,18 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
 
     const alreadyScanned = new Set(state.last_scan.sessions_scanned);
     const allNew = group.sessions.filter((s) => !alreadyScanned.has(s.id));
-    // Bias toward the most-recent unscanned sessions so the limit picks
-    // meaningful ones (not the oldest tiny bootstrap session).
-    const sortedNew = [...allNew].sort((a, b) => (b.mtimeMs ?? 0) - (a.mtimeMs ?? 0));
+    // Default ('recent'): bias toward the most-recent unscanned sessions so a
+    // --limit slice picks meaningful ones (not the oldest tiny bootstrap
+    // session). 'oldest': scan earliest-first, for backfilling history in order
+    // so episodes form chronologically (Episode 1 = earliest work).
+    const sortedNew = [...allNew].sort((a, b) =>
+      order === 'oldest' ? (a.mtimeMs ?? 0) - (b.mtimeMs ?? 0) : (b.mtimeMs ?? 0) - (a.mtimeMs ?? 0),
+    );
     const newSessions = sortedNew.slice(0, Number.isFinite(limit) ? limit : sortedNew.length);
     total.discovered += group.sessions.length;
     if (verbose && newSessions.length < allNew.length) {
       process.stdout.write(
-        `  (--limit ${limit}: scanning ${newSessions.length}/${allNew.length} new sessions, most recent first)\n`,
+        `  (--limit ${limit}: scanning ${newSessions.length}/${allNew.length} new sessions, ${order === 'oldest' ? 'oldest first' : 'most recent first'})\n`,
       );
     }
 
@@ -177,6 +222,7 @@ export async function cmdObservationSync(rest: string[], _ctx: ObsCliContext): P
           `[${project.displayName}] threshold reached (${updated.new_events_since_last_compose} ≥ ${updated.config.compose_threshold}) — composing\n`,
         );
       }
+      runFateDetection(updated, engine, project.displayName, verbose);
       const composeResult = composeAudit({ state: updated });
       if (composeResult.ok) {
         total.composed += 1;
@@ -333,6 +379,7 @@ export async function cmdObservationCompose(rest: string[], _ctx: ObsCliContext)
       project: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
       force: { type: 'boolean', default: false },
+      engine: { type: 'string' },
     },
     allowPositionals: false,
   });
@@ -343,6 +390,11 @@ export async function cmdObservationCompose(rest: string[], _ctx: ObsCliContext)
   }
   const dryRun = Boolean(values['dry-run']);
   const force = Boolean(values.force);
+  const engine = (values.engine as string | undefined) ?? 'claude';
+  if (engine !== 'claude' && engine !== 'codex') {
+    process.stderr.write(`compose: invalid --engine '${engine}' (use 'claude' or 'codex')\n`);
+    return 2;
+  }
 
   const resolved = resolveProjectFromArg(projectArg);
   if (!resolved) {
@@ -351,6 +403,11 @@ export async function cmdObservationCompose(rest: string[], _ctx: ObsCliContext)
   }
 
   const state = readProjectState(resolved.id, resolved.displayName);
+  // Fate detection runs as a separate phase BEFORE the (deterministic) composer:
+  // it appends grounded cross-episode fates onto prior events, which compose then
+  // surfaces. Skipped under dry-run (no mutations, no model call). Best-effort —
+  // a failure never blocks the episode.
+  if (!dryRun) runFateDetection(state, engine, resolved.displayName);
   const result = composeAudit({ state, dryRun, force });
   if (!result.ok) {
     // A deliberate no-op (nothing new to compose) is a clean exit, not an
