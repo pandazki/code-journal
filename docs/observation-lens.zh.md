@@ -3,7 +3,7 @@
 > **状态:已发布(v0.2.0)。** 这是 observation-lens 功能的**确定版、与代码匹配**的
 > 文档。它描述代码**当前的行为**,不是为走到这一步而做的探索。探索性记录——各
 > phase、假设、重验轮次——单独存放在 `experiments/observation-lens-*/` 与
-> `docs/plans/`;对使用或维护本功能的人而言,**本文取代那些文档**。
+> `docs/archive/plans/`;对使用或维护本功能的人而言,**本文取代那些文档**。
 >
 > English version: [`observation-lens.md`](observation-lens.md).
 
