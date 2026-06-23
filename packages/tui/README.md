@@ -1,5 +1,12 @@
 # @code-journal/tui
 
+> ⚠️ **Deprecated — superseded by the web GUI (`npm start` → `packages/app`).**
+> A journal needs real visuals (timelines, heatmaps) a terminal can't do well,
+> so `cj` is no longer the way in. It still builds and runs for existing users
+> who rely on its S3 backup path, but it is **not under active development** and
+> won't gain new features. Its session-discovery and transcript-parsing logic
+> already lives in `packages/core`; new work goes there and in `packages/app`.
+
 `cj` — an Ink terminal app that discovers, browses, and uploads raw
 coding-agent sessions. One persistent board: a projects panel, a session
 master-detail panel, a transcript viewer with subagent navigation, and an

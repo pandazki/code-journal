@@ -13,7 +13,8 @@
  *   - Anchor table before stance table (v1 wrap-up).
  *   - Same-turn cross-lens marker `↔` (v1 wrap-up).
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   DIR_MODE,
@@ -29,6 +30,7 @@ import {
   type Measurements,
   type ObservationEvent,
   type ProjectState,
+  parseAuditEpisode,
   serializeAuditEpisode,
 } from './schema';
 import { readSignals } from './store';
@@ -55,10 +57,10 @@ export interface ComposeArgs {
   cronAt?: string;
   dryRun?: boolean;
   /**
-   * Recompose even when no new events have landed since the last episode.
-   * Off by default so a repeat `compose` — e.g. the rerun script's trailing
-   * compose after sync already auto-composed at threshold — cannot emit a
-   * byte-identical duplicate episode.
+   * Accepted for CLI compatibility (`compose --force`) but now a no-op: under
+   * the disjoint-episode model an episode only ever covers events no prior
+   * episode composed, so there is nothing for `force` to re-pull. When the new
+   * slice is empty, compose skips regardless of this flag.
    */
   force?: boolean;
 }
@@ -72,33 +74,80 @@ export type ComposeResult =
     }
   | { ok: false; reason: string; skipped?: boolean };
 
-export function composeAudit(args: ComposeArgs): ComposeResult {
-  const { state, force = false } = args;
-  const strict = readSignals(state.project_id, 'strict-negative-space');
-  const deferral = readSignals(state.project_id, 'anchored-deferral');
-  const pivot = readSignals(state.project_id, 'user-initiated-pivot');
+/**
+ * The low-water mark for disjoint episodes: every event id that any prior
+ * episode already composed, read back from the episode metadata on disk.
+ *
+ * Each episode JSON records the exact ids it covered in
+ * `source_signals[].event_ids`, so unioning them across all episodes yields
+ * the set to exclude from the next compose. Reading it from disk (rather than
+ * tracking a separate counter in state) keeps a single source of truth that
+ * cannot drift from what was actually written — and needs no migration for
+ * projects that already have episodes from before this change.
+ */
+export function readComposedEventIds(projectId: string): Set<string> {
+  const dir = episodesDir(projectId);
+  const ids = new Set<string>();
+  if (!existsSync(dir)) return ids;
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith('.json')) continue;
+    try {
+      const episode = parseAuditEpisode(JSON.parse(readFileSync(join(dir, name), 'utf8')));
+      for (const sig of episode.source_signals) {
+        for (const id of sig.event_ids) ids.add(id);
+      }
+    } catch {
+      // A malformed / partially-written episode file must not silently widen
+      // the new slice (which would re-compose old events). Skip it; the worst
+      // case is one episode's ids missing, surfaced loudly by a duplicate event.
+    }
+  }
+  return ids;
+}
 
-  if (strict.length === 0 && deferral.length === 0 && pivot.length === 0) {
+export function composeAudit(args: ComposeArgs): ComposeResult {
+  const { state } = args;
+
+  const strictAll = readSignals(state.project_id, 'strict-negative-space');
+  const deferralAll = readSignals(state.project_id, 'anchored-deferral');
+  const pivotAll = readSignals(state.project_id, 'user-initiated-pivot');
+  if (strictAll.length === 0 && deferralAll.length === 0 && pivotAll.length === 0) {
     return { ok: false, reason: 'no events in signal store; sync first' };
   }
 
-  // No-new-events guard. composeAudit re-audits the ENTIRE append-only store
-  // on every call, so without this a repeat compose emits a verbatim duplicate
-  // episode (observed: Episodes 3 and 4 were identical — sync auto-composed at
-  // threshold, then the rerun script's trailing compose ran over the same
-  // store). Skip unless forced when nothing new has landed since the last
-  // episode. dryRun ignores the guard so a preview always renders.
+  // Episodes are disjoint periods, not nested re-audits. Each compose covers
+  // only the events no prior episode has already composed — the low-water mark
+  // is the union of every prior episode's `source_signals[].event_ids` (read
+  // back from the episode metadata on disk; no separate bookkeeping to drift).
+  // Before this, composeAudit re-audited the ENTIRE append-only store on every
+  // call, so Episode N nested over Episode N-1's events — which (a) made fate
+  // structurally impossible (no prior-vs-new partition), (b) made cross-episode
+  // measurements non-independent, and (c) contradicted the "new period → new
+  // episode" model. See observation-lens-record.md S8.
+  const composedIds = readComposedEventIds(state.project_id);
+  const isNew = (e: ObservationEvent) => !composedIds.has(e.id);
+  const strict = strictAll.filter(isNew);
+  const deferral = deferralAll.filter(isNew);
+  const pivot = pivotAll.filter(isNew);
+
+  // No-new-events guard: once a project has episodes, an episode covers only
+  // events no prior episode composed. If that new slice is empty there is
+  // nothing to compose — and `force` can no longer change that, because the
+  // disjoint model never re-pulls a prior episode's events (that re-pull was
+  // the original bug). Fires for force and dryRun alike: an empty episode is
+  // never meaningful. The first episode (no episodes yet) always has a non-empty
+  // new slice here, since the store was checked non-empty above.
   if (
-    !force &&
-    !args.dryRun &&
     state.episodes.length > 0 &&
-    state.new_events_since_last_compose === 0
+    strict.length === 0 &&
+    deferral.length === 0 &&
+    pivot.length === 0
   ) {
     const last = state.episodes[state.episodes.length - 1];
     return {
       ok: false,
       skipped: true,
-      reason: `no new events since Episode ${last?.episode} — nothing to compose (use --force to recompose)`,
+      reason: `no new events since Episode ${last?.episode} — nothing to compose`,
     };
   }
 
@@ -118,10 +167,19 @@ export function composeAudit(args: ComposeArgs): ComposeResult {
   // Window = activity-time covered by these events, derived from digests.
   const window = computeWindow(sessionTurnMaps);
 
-  // Fate updates: MVP-II does not auto-detect; manual annotation is MVP-III.
-  // See plan § R3 / E5 finding: "same git repo ≠ same collaboration arc";
-  // empty fate is honest, not blank.
-  const fateUpdates: AuditEpisode['fate_updates_surfaced'] = [];
+  // Fate updates surfaced this episode. The composer stays deterministic: the
+  // separate fate-detection phase (fate-runner.ts) already ran before this call
+  // and appended grounded fates onto their target PRIOR events via
+  // addFateUpdate. Here we just collect the ones tagged with the episode being
+  // composed. Empty is the honest, common default (Phase 2 P4: same repo ≠ same
+  // arc). See experiments/observation-lens-v4-fate.
+  const fateUpdates: AuditEpisode['fate_updates_surfaced'] = [
+    ...strictAll,
+    ...deferralAll,
+    ...pivotAll,
+  ]
+    .flatMap((e) => e.fate)
+    .filter((f) => f.detected_in_episode === state.next_episode_number);
 
   const composedAt = new Date().toISOString();
   const date = composedAt.slice(0, 10);
@@ -494,15 +552,15 @@ function renderAudit(
       out.push('This is the first audit episode for this project — no prior events to update.');
     } else {
       out.push(
-        '(none surfaced — Episode ' +
-          episode.episode +
-          " 's events did not detectably touch any prior episode's events. Per Phase 2 E5 finding: same git repo does not always mean same collaboration arc; silence here is honest, not blank.)",
+        '(none surfaced — the fate detector ran over this episode\'s work against prior events and found no grounded continuation/reversal. Per Phase 2 E5/P4: same git repo does not always mean same collaboration arc, so consecutive episodes are often different streams; silence here is honest, not blank.)',
       );
     }
   } else {
     out.push(`${episode.fate_updates_surfaced.length} fate update${episode.fate_updates_surfaced.length === 1 ? '' : 's'} surfaced from prior episodes:`);
     for (const f of episode.fate_updates_surfaced) {
-      out.push(`- **${f.type}** detected in episode ${f.detected_in_episode}: ${describeRef(f.evidence_ref)}`);
+      const label = typeof f._extra?.target_label === 'string' ? f._extra.target_label : describeRef(f.evidence_ref);
+      const note = typeof f._extra?.note === 'string' && f._extra.note ? ` — ${f._extra.note}` : '';
+      out.push(`- **${f.type}** of ${label} (evidence: ${describeRef(f.evidence_ref)})${note}`);
     }
   }
   out.push('');
@@ -515,7 +573,7 @@ function renderAudit(
   out.push('- **Recall is not validated.** Lens precision verified by participant review; how many events the lens *missed* is structurally unverifiable from precision-only checks (§ 14.1).');
   out.push('- **Run-to-run variance is real.** Stance counts can vary ±30% across re-scans of the same digest (Phase 2 E1, especially in the `overrode` and `engaged` categories). Treat single-run numbers as one sample, not ground truth.');
   out.push('- **Lens coverage is bounded.** Three lenses run (strict-negative-space, anchored-deferral, user-initiated-pivot); phenomena outside their definitions are invisible.');
-  out.push('- **Fate-tracking is manual in MVP-II.** This audit does not auto-detect fate evolution of prior events; that requires topic-coherent arc detection (planned for MVP-III).');
+  out.push('- **Fate-tracking is precision-first and recall is unproven on real positives.** A grounded cross-episode detector runs (both-sides citation or drop); it correctly returns empty on unrelated episodes, but how reliably it catches a genuine resurfaced thread on real data is not yet validated (experiment v4 validated recall only on a synthetic positive).');
   out.push('');
 
   // ── Source index ─────────────────────────────────────────────────────────

@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **Observation: fate auto-detection (§ 8)** — `compose` now surfaces the *fate*
+  of prior-episode decisions: a grounded cross-episode detector runs as a separate
+  phase before the (still deterministic) composer, scanning the new episode's work
+  against **all** prior episodes' flagged moments and appending `expanded` /
+  `reverted` / `user_reframed` / `caused_rework` updates onto the prior events
+  (`addFateUpdate`). Precision-first: both-sides citation or drop — an evidence
+  snippet that can't be reproduced verbatim in the new digests, or a target that
+  isn't a real prior event, is dropped; empty is the honest, common result. Uses
+  the same `claude -p` / codex plumbing as the lenses (no API key); a detection
+  failure never blocks the episode. Replaces the previous hardcoded empty fate
+  section. Prototyped and validated (precision + recall) in
+  `experiments/observation-lens-v4-fate/`.
+
+- **Observation: episodes are now disjoint periods** — `compose` covers only the
+  events no prior episode has already composed (the low-water mark is the union
+  of every prior episode's `source_signals[].event_ids`), instead of re-auditing
+  the entire append-only store on every call. Before this, Episode N nested over
+  Episode N-1's events, which made fate tracking structurally impossible (no
+  prior-vs-new partition), made cross-episode measurements non-independent, and
+  contradicted the "new period → new episode" model. `compose --force` no longer
+  re-pulls already-composed events (it can't fabricate a duplicate episode from
+  an empty new slice). No state migration — the fix reads the low-water mark back
+  from the episode metadata already on disk.
+
 - **Per-project timezone** — each project reckons calendar days in one timezone,
   set once and used everywhere: entry filing date, `today` / `yesterday` query
   windows, catch-up's pending-report list, and report staleness. `init`

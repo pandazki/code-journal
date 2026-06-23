@@ -1,7 +1,7 @@
 # MVP-II 感性总结 · what stuck after running it for real
 
 > ⚠️ **Superseded / historical.** Reflective notes from an earlier round
-> (pre-v0.2.0). Current feature docs: [`docs/observation-lens.md`](../observation-lens.md).
+> (pre-v0.2.0). Current feature docs: [`docs/observation-lens.md`](../../observation-lens.md).
 # MVP-II Reflective Summary · what stuck after running it for real
 
 > 不是表格,不是 verdict。是把 Phase 1 → Phase 2 → MVP-II 一路下来,**真正

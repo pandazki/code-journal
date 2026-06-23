@@ -2,8 +2,8 @@
 
 > ⚠️ **Superseded / historical.** Operational notes here predate the v0.2.0
 > release (e.g. "two lenses"). For current usage see
-> [`docs/observation-lens.md`](../observation-lens.md) /
-> [中文](../observation-lens.zh.md).
+> [`docs/observation-lens.md`](../../observation-lens.md) /
+> [中文](../../observation-lens.zh.md).
 
 Companion to `docs/plans/mvp-ii.md`. This file is the **runbook**: how
 to install MVP-II locally, schedule the cron, and read the audits it

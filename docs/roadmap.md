@@ -2,6 +2,33 @@
 
 Where code-journal is heading, and the work to get there.
 
+## Now (2026-06-22)
+
+Two product lines on the shared `packages/core` base:
+
+- **Journal (visual)** — `npm start` → `packages/app`. At a natural stopping
+  point after a burst of GUI work (Projects registry, per-project timezone,
+  observation web console, `--host`/`--lan`, manual-rebuild flag). Shipped but
+  not yet reflected in the checklists below — see § B.
+- **Observation lens (research)** — shipped v0.2.0, then **frozen since the
+  2026-05-29 handoff**. Real-data validation never ran: every project locally is
+  still at Episode 1, so fate / multi-episode is untested on real data. This is
+  the live research frontier — see § E and `docs/archive/HANDOFF.md` Tier 1.
+
+**Open consolidation decisions (the "收尾" items):**
+
+1. ~~`packages/tui` (`cj`) — decide its fate~~ — **deprecated-in-place
+   (2026-06-22).** Banner'd in its README + `package.json`; still builds for
+   existing S3-backup users, no new features. Full retirement (sinking any
+   remaining logic into `core` and dropping the workspace) left for later. (§ A)
+2. The Claude Code plugin still ships its own `work-log` / `work-report` skills,
+   a second worklog path parallel to the app's narrative engine — fold or keep
+   separate. (§ A / § B)
+3. ~~Historical docs/experiments cluttering the root~~ — **done (2026-06-22).**
+   `HANDOFF.md` + the MVP-II plans moved to `docs/archive/`; `experiments/`
+   (≈ 3.9M) stays in place (it's the cited evidence base for the live guides)
+   but is banner'd as a frozen record via `experiments/README.md`.
+
 ## Direction
 
 code-journal is a **local, project-scoped tool** that turns your AI coding-agent
@@ -47,8 +74,13 @@ transcript-viewer SPA in `server/public/`.
 - [x] Editorial SPA graduated from the prototype; degrades to metadata-only when no narrative
 - [x] Per-day session splitting — a resumed session counts toward every day it spans
 - [x] `code-journal` / `cj` bin — build + serve, or `code-journal narrate`
+- [x] **Projects management** — folder → Project registry, resolver, shared
+  config; in-GUI organize screen with cached discovery
+- [x] Per-project timezone — day reckoning, auto-detected, editable in Settings
+- [x] `--host` / `--lan` to bind the journal server beyond loopback (warned)
 - [ ] Move configuration (S3, remote server) into the GUI; optional, never a gate
-- [ ] Retire / shrink `packages/tui` (the Ink board) — keep its logic in `core`
+- [~] Retire / shrink `packages/tui` (the Ink board) — keep its logic in `core`
+  — deprecated-in-place 2026-06-22 (banner'd, frozen); full retirement TBD
 - [ ] Keep a headless `code-journal sync` for the cron path
 
 ## B — The journal (the centerpiece)
@@ -62,6 +94,8 @@ transcript-viewer SPA in `server/public/`.
 - [x] Narrative engine — host coding agent (`claude -p`) writes day titles + day / project recaps, cached to disk
 - [x] drill from a session into its raw transcript — line-numbered entry viewer
 - [ ] Fold the plugin's worklog generation into the narrative engine
+  — _open consolidation decision #2 (see § Now); plugin still ships its own
+  `work-log` / `work-report` skills_
 
 ## C — Onboarding & adoption
 
@@ -85,11 +119,24 @@ canonical, code-matching documentation is
 [`docs/observation-lens.md`](observation-lens.md) (中文:
 [`observation-lens.zh.md`](observation-lens.zh.md)). The exploratory record
 (phases, hypotheses, re-validation) lives under `experiments/observation-lens-*/`
-and `docs/plans/` and is superseded by that guide for day-to-day use.
+and `docs/archive/plans/` and is superseded by that guide for day-to-day use.
 
 - [x] Phase 1 · cross-project comparison (3 projects × 2 lenses, isolated subagents) — `experiments/observation-lens-v1/report.md`
 - [x] Phase 2 · seven-experiment battery (lens variance, empty-state, measurement utility, cross-agent, fate proxy, predictability proxy, third-party reader proxy) — `experiments/observation-lens-v2/report.md`
 - [x] MVP-II · production three-layer architecture (Detection / Signal Store / Audit) — `sync` / `compose` / `status`
 - [x] v3 re-validation — adversarial grounding gate, `assented` stance (de-contaminate `engaged`), third lens `user-initiated-pivot`, generalization on unseen projects — `experiments/observation-lens-v3-revalidation/`
-- [ ] MVP-III — **not yet built/validated:** fate tracking (manual today; auto-detection + `fate add` CLI), large-session chunked digest, cross-machine sync, real-human reader tests, § 9 predictability dashboard
+- [x] **Disjoint episodes (fate prerequisite)** — `compose` now covers only the
+  new event slice since the last episode (low-water mark = union of prior
+  episodes' `source_signals[].event_ids`), instead of re-auditing the whole
+  store. Fixed 2026-06-22; verified on real data (pneuma-skills Ep2: E1∩E2=0,
+  window advanced). Unblocks fate + makes cross-episode measurements independent.
+  See `observation-lens-record.md` S8.
+- [x] fate **auto-detection** — disjoint-episode prerequisite landed (S8); the
+  grounded-subagent detector was prototype-validated (precision + recall, v4) and
+  is now **productionized**: `fate-runner.ts` runs as a separate phase before the
+  (deterministic) `compose`, grounding cross-episode fates and writing them onto
+  prior events via `addFateUpdate`. End-to-end on real data. Remaining: a
+  `fate add` CLI for manual annotation, and recall on a *real* resurfaced thread.
+- [ ] MVP-III rest — large-session chunked digest, cross-machine sync,
+  real-human reader tests, § 9 predictability dashboard
 - [ ] Tune `user-initiated-pivot` soft edges (session openers, question-form concern-surfacing) — currently experimental

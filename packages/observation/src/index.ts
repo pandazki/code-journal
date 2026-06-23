@@ -1,7 +1,7 @@
 /**
  * @code-journal/observation — observation lens layer
  *
- * Three-layer architecture (see docs/plans/mvp-ii.md):
+ * Three-layer architecture (see docs/archive/plans/mvp-ii.md):
  *
  *   Detection (continuous, system-internal)
  *      ↓ appends events
@@ -35,4 +35,5 @@ export * from './lib/state';
 export * from './lib/lens-runner';
 export * from './lib/grounding';
 export * from './lib/compose';
+export * from './lib/fate-runner';
 export * from './lib/language';

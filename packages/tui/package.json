@@ -2,7 +2,7 @@
   "name": "@code-journal/tui",
   "version": "0.2.0",
   "private": true,
-  "description": "code-journal TUI — discover, browse, and upload coding-agent sessions",
+  "description": "[DEPRECATED — superseded by packages/app web GUI] code-journal TUI — discover, browse, and upload coding-agent sessions",
   "type": "module",
   "scripts": {
     "dev": "tsx src/cli.tsx",
