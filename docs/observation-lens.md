@@ -4,7 +4,7 @@
 > documentation for the observation-lens feature. It describes what the code
 > *does today*, not what was explored to get here. The exploratory record —
 > phases, hypotheses, re-validation rounds — lives separately under
-> `experiments/observation-lens-*/` and `docs/plans/`; this document supersedes
+> `experiments/observation-lens-*/` and `docs/archive/plans/`; this document supersedes
 > those for anyone using or maintaining the feature.
 >
 > 中文版见 [`observation-lens.zh.md`](observation-lens.zh.md)。

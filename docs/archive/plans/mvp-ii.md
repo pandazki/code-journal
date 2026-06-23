@@ -2,7 +2,7 @@
 
 > ⚠️ **Superseded / historical.** This is the original engineering *plan*, not the
 > current state. For how the shipped feature actually works, see the canonical
-> guide [`docs/observation-lens.md`](../observation-lens.md). Out of date here:
+> guide [`docs/observation-lens.md`](../../observation-lens.md). Out of date here:
 > this plan describes **two** lenses and **four** stances; the shipped feature has
 > **three** lenses, **five** stances, and a grounding gate.
 

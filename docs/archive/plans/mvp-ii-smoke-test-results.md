@@ -2,7 +2,7 @@
 # MVP-II Smoke Test · End-to-End on Real Data
 
 > ⚠️ **Superseded / historical.** Early smoke-test record (pre-v0.2.0, two
-> lenses). Current feature docs: [`docs/observation-lens.md`](../observation-lens.md).
+> lenses). Current feature docs: [`docs/observation-lens.md`](../../observation-lens.md).
 
 > 2026-05-28 · 在用户自己 6 个项目上跑 `code-journal sync` + `compose`。
 > 4 个项目产出 Episode 1 audit;2 个项目全 empty-state(均符合预期)。
